@@ -1,27 +1,44 @@
-# KADAdesk Community · 内容发布工作台
+# KADAdesk Community · 可扩展 AI 工作台
 
-**一次创作，多账号分发。统一管理图文素材、内容分发计划、人工发布提醒与发布记录。**
+**一个工作台，按需组合插件。帮助不同类型的客户解决不同业务问题。**
 
-[English summary](#english) · [使用手册](docs/USER-GUIDE.zh-CN.md) · [社区协议](LICENSE) · [参与开发](CONTRIBUTING.md)
+KADAdesk / 咔哒的长期定位是 **Extensible AI Workspace（可扩展 AI 工作台）**，不是固定的 AI 客服工具，也不是图文内容发布工具。核心负责统一工作区、能力接口、权限、安全、数据及插件生命周期；知识库、AI 回复辅助、内容运营、客户跟进等都是可以组合的业务模块。
 
-这是一个 **Local-first / Source-Available** 的内容运营工具。参考社交平台内容管理工具中常见的 **Draft → Review → Handoff → Published → Verified** 流程，为运营多个社媒账号的人减少重复准备内容的时间。
+> **当前真实进度：** 这是早期社区版，目前只有一个**内置的内容运营示例模块**。已经支持该模块的启用、停用和本地持久化，后端停用后也拒绝业务 API。**独立下载安装/卸载第三方插件、权限沙箱、插件市场、完整知识库与 AI 回复插件尚未实现。** 请勿把架构规划理解为已交付功能。
 
-> **能力边界：** 这是发布准备与人工协作工具，不是官方平台的发布接口。**不会自动登录、定时发帖或群发**。平台标签仅用于整理账号，不意味着已接入对应平台。
+[插件架构与路线](docs/PLUGIN-ARCHITECTURE-V1.md) · [内容运营示例使用方法](docs/USER-GUIDE.zh-CN.md) · [源码许可](LICENSE) · [参与共创](CONTRIBUTING.md)
 
-## 社区版能做什么
+## 目标架构
 
-- **多账号与多设备**：登记账号、平台分类和 Windows / macOS / 手机设备；支持一次导入 6 个以上账号。
-- **图文素材库**：保存正文，支持最多 9 张图片（PNG/JPEG/WebP，每张不超过 4 MB）。
-- **内容分发计划**：一次编写，给不同账号生成独立发布任务和专属文案；避免重复分配。
-- **审核与发布提醒**：待审核 → 待手动发布 → 已标记发布 → 人工核实；结果不明时锁定任务，避免误重发。
-- **素材包交接**：给每个账号打包正文 TXT、发布说明与图片 ZIP，自行传输到对应设备。
-- **隐私优先**：本机保存，默认只允许本机浏览器访问；不索取平台密码或密钥。
+```text
+KADAdesk Workspace Core
+├── Shell：统一入口、工作区、通知与设置
+├── Plugin Manager：发现 / 安装 / 启用 / 停用 / 更新 / 卸载
+├── Plugin SDK & Capability Broker：权限、依赖、生命周期和日志
+├── 数据与模型能力：租户隔离、模型适配、知识服务
+└── 业务能力插件（逐步交付）
+    ├── 内容运营 · 当前内置示例，启停可用
+    ├── 知识库 · 待从既有产品拆分
+    ├── AI 回复辅助 · 待从既有产品拆分
+    ├── 客户跟进 · 规划
+    ├── 社群运营 · 规划
+    └── 官方渠道连接器 / 行业插件 · 按授权与客户需求
+```
 
-**“发布提醒”目前是工作台内的待办和流程提示，不是后台定时推送，更不是到点自动发帖。**
+模块之间必须有明确的数据与权限边界。AI 回复负责生成建议和人工审核；特定平台的自动收发必须另经官方接口授权，不会因为软件改叫“工作台”就自动合规。
 
-## 安装并运行
+## 当前能运行的版本
 
-需要 Node.js 22/24 和 npm：
+- 一套本机 Web 工作台，包含**工作台首页、插件管理页、内容运营示例**。
+- 内容运营样例支持图文素材保存、多个账号独立任务、专属文案、人工审核和 ZIP 素材包交接。
+- 操作员在目标平台官方客户端手动发布，再回来登记结果；未确认结果不允许随意重发。
+- 可从插件管理中**启用/停用内置内容运营模块**；停用后业务 API 拒绝调用，原有资料保留。
+
+这不是第三方任意插件安装器，不执行外部下载的程序代码，也没有自动调用某个平台的发布接口。
+
+## 运行
+
+要求 Node.js 22/24、npm：
 
 ```bash
 git clone https://github.com/AIMarshallLee/kadadesk-community.git
@@ -30,9 +47,7 @@ npm ci
 npm run dev
 ```
 
-打开终端显示的本机地址，例如 `http://127.0.0.1:<端口>`。手机或另一台电脑不能直接访问这个本机地址；需要将每个任务的 ZIP 素材包手动传输过去。
-
-本地运营数据默认位于 `~/.kadadesk-community/`。不需要账号注册、云服务器或 AI Key。
+打开终端显示的本机地址（如 `http://127.0.0.1:<端口>`）；数据保存于 `~/.kadadesk-community/`，其他设备不自动同步。
 
 ```bash
 npm test
@@ -40,24 +55,16 @@ npm run smoke
 npm run build
 ```
 
-## 五步操作
+**开发路线**：先做安全可信的 Core 与插件 SDK，再拆分已有知识库和 AI 回复辅助，最后在签名、沙箱、版本依赖和回滚验收通过后提供独立插件包的下载安装与升级。具体设计与验证清单见 [插件架构 V1](docs/PLUGIN-ARCHITECTURE-V1.md)。
 
-1. **社媒账号管理**：登记账号备注、目标平台和所用设备（平台仅作分类）。
-2. **图文素材库**：准备正文与图片。
-3. **内容分发计划**：选择要使用该内容的账号，各自生成独立任务。
-4. **审核 / 获取发布素材包**：检查专属文案、平台和目标账号，下载 ZIP，在目标平台自己的客户端手动发布。
-5. **确认发布结果**：在对应账号已发布内容列表中核对后，回工作台标记人工核实；不确定则保持锁定，避免重复操作。
+## 社区与商业许可
 
-详细流程见 [中文操作手册](docs/USER-GUIDE.zh-CN.md)。
+欢迎参与架构方案、插件开发、测试与客户场景共创。阅读 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md)、[源码审计](docs/EXTRACTION-AUDIT.md)。
 
-## 社区协作与许可
-
-当前许可证为 [KADAdesk Community Source License v0.1](LICENSE)：**源码可见，并非 OSI 标准开源许可证**。个人、团队用在自己或获授权的账号上，包括这些账号的正常内容经营，按照许可条款免费使用；出售或贴牌软件、商业 SaaS 和向外部客户提供收费的软件运营服务须另行取得书面商业授权。
-
-欢迎反馈和贡献：参见 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md)、[COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) 及 [源码提取审计](docs/EXTRACTION-AUDIT.md)。商业再授权及第三方贡献的版权边界需在合并代码前确认。
+项目按 [KADAdesk Community Source License v0.1](LICENSE) **Source-Available** 许可公开，并非 OSI 标准开源。符合约定的自用和研究免费；软件再售、贴牌、收费 SaaS 或向第三方收费提供本软件的运营服务，须取得单独商业授权。[商业许可范围](COMMERCIAL-LICENSE.md)。
 
 ### English
 
-KADAdesk Community is a **local-first content publishing planner**, not a platform publishing API. Prepare image-and-text content once, create independent account tasks, review variants, hand off ZIP bundles and manually verify publication. Platform labels such as Instagram, X or Facebook are organizational metadata only. There is **no direct publishing, scheduling push notification, account login or cloud sync**. This project is source-available, not OSI open source. Read [LICENSE](LICENSE).
+**KADAdesk Community — an extensible AI workspace in development.** This project currently ships a local workspace shell and **one trusted, bundled content-operations example with persistent enable/disable controls**, not an installable third-party plugin ecosystem. Planned modules include knowledge management, AI-assisted replies, customer operations and authorized channel integrations. Third-party installation, plugin sandboxing and dynamic loading are **not yet implemented**. Source-available, not OSI open source; see [LICENSE](LICENSE).
 
 Copyright (c) 2026 AIMarshallLee and relevant contributors.

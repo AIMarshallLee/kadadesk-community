@@ -2,7 +2,7 @@
   "name": "@kadadesk/community",
   "version": "0.1.0",
   "private": true,
-  "description": "Local-first source-available multi-account personal social media content operations assistant",
+  "description": "Local-first source-available extensible AI workspace with trusted built-in modules",
   "type": "module",
   "engines": {
     "node": ">=22.0.0"

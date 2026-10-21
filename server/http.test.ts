@@ -26,6 +26,18 @@ test('local-only web server serves UI and rejects unauthorized or foreign-origin
   const withToken=await fetch(app.url+'/api/moments',{headers:{'x-kadadesk-token':app.token}});
   assert.equal(withToken.status,200);
   assert.equal((await withToken.json()).provider.autoPublishEnabled,false);
+  const h={'x-kadadesk-token':app.token};
+  const plugins=await fetch(app.url+'/api/plugins',{headers:h});
+  assert.equal(plugins.status,200);
+  assert.equal((await plugins.json())[0].id,'com.kadadesk.content-ops');
+  const disabled=await fetch(app.url+'/api/plugins/com.kadadesk.content-ops/disable',{method:'POST',headers:{...h,'content-type':'application/json'},body:'{}'});
+  assert.equal(disabled.status,200);
+  assert.equal((await fetch(app.url+'/api/moments',{headers:h})).status,409);
+  assert.equal((await fetch(app.url+'/api/moments',{method:'POST',headers:{...h,'content-type':'application/json'},body:'{}'})).status,404);
+  const enabled=await fetch(app.url+'/api/plugins/com.kadadesk.content-ops/enable',{method:'POST',headers:{...h,'content-type':'application/json'},body:'{}'});
+  assert.equal(enabled.status,200);
+  assert.equal((await fetch(app.url+'/api/moments',{headers:h})).status,200);
+  assert.equal((await fetch(app.url+'/api/plugins/com.kadadesk.other/enable',{method:'POST',headers:{...h,'content-type':'application/json'},body:'{}'})).status,404);
   const exploit=await fetch(app.url+'/api/moments/publish-all',{method:'POST',headers:{'x-kadadesk-token':app.token,'content-type':'application/json'},body:'{}'});
   assert.equal(exploit.status,404);
   const foreign=await fetch(app.url+'/private/read',{headers:{'x-kadadesk-token':app.token}});

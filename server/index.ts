@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { readFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { createMomentsOperations } from './moments-campaign.ts';
+import { createPluginHost } from './plugin-host.ts';
 import { ApiError } from './autopilot.ts';
 import { isAllowedRequest } from '../desktop/guards.ts';
 
@@ -37,6 +38,7 @@ async function parseJson(req:IncomingMessage) {
 export async function createLocalServer(options:{dataDir:string;port?:number}) {
   await mkdir(options.dataDir,{recursive:true,mode:0o700});
   const moments=await createMomentsOperations(options.dataDir);
+  const plugins=await createPluginHost(options.dataDir);
   const token=randomBytes(32).toString('hex');
   let activePort=0;
   const server=createServer(async(req,res)=>{
@@ -55,12 +57,15 @@ export async function createLocalServer(options:{dataDir:string;port?:number}) {
       if(pathname.startsWith('/api/')) {
         if(req.headers['x-kadadesk-token']!==token)return fail(res,403,'本地会话已失效，请刷新工作台');
         const path=pathname.slice('/api'.length);
-        if(path!=='/moments'&&!path.startsWith('/moments/'))return fail(res,404,'接口不存在');
+        const isContent = path==='/moments'||path.startsWith('/moments/');
+        const isPlugin = path==='/plugins'||path.startsWith('/plugins/');
+        if(!isContent&&!isPlugin)return fail(res,404,'接口不存在');
         const method=(req.method||'GET').toUpperCase();
         if(!['GET','POST','PUT'].includes(method))return fail(res,405,'不支持该方法');
-        if(!isAllowedRequest({method,path}))return fail(res,404,'接口不存在');
+        if(isContent&&!isAllowedRequest({method,path}))return fail(res,404,'接口不存在');
+        if(isContent)plugins.requireEnabled('com.kadadesk.content-ops');
         const body=method==='GET'?{}:await parseJson(req);
-        const result=await moments.handle(method,path,body);
+        const result=isPlugin?await plugins.handle(method,path):await moments.handle(method,path,body);
         res.writeHead(200,{'content-type':'application/json; charset=utf-8'});
         return res.end(JSON.stringify(result));
       }
@@ -96,7 +101,7 @@ export async function createLocalServer(options:{dataDir:string;port?:number}) {
 if(process.argv[1] && resolve(process.argv[1])===resolve(fileURLToPath(import.meta.url))) {
   const dataDir=process.env.KADADESK_COMMUNITY_DATA_DIR || join(homedir(),'.kadadesk-community');
   const app=await createLocalServer({dataDir,port:process.env.PORT?Number(process.env.PORT):0});
-  console.log('KADAdesk Community · 内容发布工作台');
+  console.log('KADAdesk Community · 可扩展 AI 工作台（内置示例插件）');
   console.log('Open in your browser: '+app.url);
   console.log('Data stored locally in: '+dataDir);
   console.log('No social platform account is logged in or posted to automatically.');
