@@ -1,0 +1,58 @@
+KADAdesk Community Source License v0.1
+Copyright (c) 2026 AIMarshallLee and applicable KADAdesk contributors.
+All rights not expressly granted are reserved.
+
+IMPORTANT: THIS IS A SOURCE-AVAILABLE COMMUNITY LICENSE, NOT AN OSI-APPROVED
+OPEN-SOURCE LICENSE. A publicly visible repository does NOT grant a general
+right to commercially resell, relicense or offer this software as a SaaS.
+
+1. Grant. Each copyright holder grants you a worldwide, non-exclusive,
+royalty-free right to download, run, inspect, test, modify and distribute
+the Community Edition and permitted derivatives for Community Use only,
+subject to the conditions below.
+
+2. Community Use:
+(a) private study, research, testing, evaluation, education and hobbies;
+(b) an individual, creator or organization using the software to prepare
+    content and manage social accounts it owns or is explicitly authorized
+    to operate FOR ITS OWN USE, including where those accounts have ordinary
+    advertising, affiliate, content or business revenue, PROVIDED it does
+    not charge external customers to use or operate this software for them;
+(c) contributing permitted changes to the community under the same terms.
+
+3. Separate prior WRITTEN commercial authorization is required for:
+(a) selling, renting, white-labeling, relicensing or reselling copies of
+    this software, or products substantially derived from it;
+(b) hosting or offering the software itself as a paid SaaS, API or service
+    to third parties;
+(c) integrating it into a sold software product or operating it as part
+    of a paid managed service for external customers.
+    Merely earning revenue from content on YOUR OWN accounts does not
+    by itself trigger paragraph 3.
+
+4. Sharing changes. You may distribute permitted copies and modifications
+for Community Use only if you retain this complete LICENSE, preserve
+copyright and third-party notices, clearly mark modifications, and make
+the covered source available to recipients under these same terms.
+You may not represent that commercial use has been licensed.
+
+5. This license grants no trademark, official KADAdesk vendor status,
+WeChat/platform API entitlement, platform account access, or rights
+to personal/customer data. Comply with applicable law and platform rules.
+
+6. External libraries, assets and third-party code remain governed by
+their own licenses. This grant covers only rights each licensor owns.
+This license does not transfer copyrights in third-party contributions.
+Commercial relicensing of contributions may require a separate CLA.
+
+7. The software is provided AS IS without warranties. To the maximum
+extent law permits, licensors disclaim liability for its use.
+Uses not expressly authorized require the relevant copyright holder's
+prior written consent; violations terminate permission for those uses.
+
+Non-authoritative Chinese summary:
+个人学习研究、修改交流，以及用在自己或获授权的个人账号上经营内容，
+即使账号有正常内容收入，也允许免费。出售/贴牌软件、提供收费 SaaS、
+对外收费代运营本软件或集成为对外出售的产品，需事先取得书面商业授权。
+本许可证是源码开放许可，并非符合 OSI 标准的开源软件许可证。
+正式扩大推广前，建议由律师复核这一社区许可版本。

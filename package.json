@@ -1,0 +1,30 @@
+{
+  "name": "@kadadesk/community",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first source-available multi-account personal WeChat Moments operations assistant",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "npm run build && npm start",
+    "start": "tsx server/index.ts",
+    "build": "tsc --noEmit && vite build",
+    "test": "tsx --test server/*.test.ts",
+    "smoke": "tsx scripts/smoke.ts"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "lucide-react": "^0.456.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0"
+  }
+}

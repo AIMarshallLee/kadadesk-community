@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env*
+!.env.example
+*.log
+.DS_Store
+*.local
+moments-ops-v1.json
+moments-assets/
+community-data/
+secrets/
+credentials/
+*.pem
+*.key
