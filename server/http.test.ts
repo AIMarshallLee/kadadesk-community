@@ -12,7 +12,13 @@ test('local-only web server serves UI and rejects unauthorized or foreign-origin
  try {
   const root=await fetch(app.url+'/');
   assert.equal(root.status,200);
-  assert.match(await root.text(),/api-token/);
+  const page=await root.text();
+  assert.match(page,/api-token/);
+  const script=page.match(/src="(\/assets\/[a-zA-Z0-9_.-]+\.js)"/);
+  assert.ok(script,'compiled UI script is referenced');
+  const js=await fetch(app.url+script[1]);
+  assert.equal(js.status,200);
+  assert.match(js.headers.get('content-type')??'',/javascript/);
   const without=await fetch(app.url+'/api/moments');
   assert.equal(without.status,403);
   const wrongOrigin=await fetch(app.url+'/api/moments',{headers:{'x-kadadesk-token':app.token,Origin:'https://example.com'}});
