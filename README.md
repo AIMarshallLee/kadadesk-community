@@ -1,25 +1,27 @@
-# KADAdesk Community · 咔哒社区版
+# KADAdesk Community · 内容发布工作台
 
-**一次准备朋友圈内容，分别管理多个个人微信号，逐号审核、人工发表、核实结果。**
+**一次创作，多账号分发。统一管理图文素材、内容分发计划、人工发布提醒与发布记录。**
 
-本项目是 **Source-Available（源码开放、非 OSI 标准开源）**。个人和团队在自己或获授权的账号上自用（包括正常内容变现）、学习和修改，按 [LICENSE](LICENSE) 免费；对外销售软件、贴牌、收费 SaaS 和收费代运营软件，需要独立商业授权。这里不是 MIT/Apache 开源项目。
+[English summary](#english) · [使用手册](docs/USER-GUIDE.zh-CN.md) · [社区协议](LICENSE) · [参与开发](CONTRIBUTING.md)
 
-从咔哒私有产品 **选择性提取** 的独立社区应用，**不是**原版商业代码的公开镜像。没有商业授权系统、收付款、私有客户数据库、硬件控制或非公开微信接口。
+这是一个 **Local-first / Source-Available** 的内容运营工具。参考社交平台内容管理工具中常见的 **Draft → Review → Handoff → Published → Verified** 流程，为运营多个社媒账号的人减少重复准备内容的时间。
 
-## 能做什么
+> **能力边界：** 这是发布准备与人工协作工具，不是官方平台的发布接口。**不会自动登录、定时发帖或群发**。平台标签仅用于整理账号，不意味着已接入对应平台。
 
-- 批量登记 6+ 个普通个人微信号，备注分布于 Windows/Mac/手机的设备。
-- 内容库保留文字、最多 9 张 PNG/JPEG/WebP 配图（每张上限 4 MB）。
-- 为每个号生成独立发布任务、修改专属文案、审核版本和避免重复任务。
-- 每个号导出 ZIP（正文 TXT、发布说明、配图），由本人传到对应手机或电脑。
-- **在官方微信客户端手动发表**，回到工具报告结果、核对本人朋友圈。
-- 不确定有没有发出的任务会阻止自动重试；任务记录本地保存，重启后保留。
+## 社区版能做什么
 
-**不提供：** 自动登录微信、协议逆向、多开、无人值守朋友圈群发、账号数据抓取、跨设备云同步或官方发布成功回执。
+- **多账号与多设备**：登记账号、平台分类和 Windows / macOS / 手机设备；支持一次导入 6 个以上账号。
+- **图文素材库**：保存正文，支持最多 9 张图片（PNG/JPEG/WebP，每张不超过 4 MB）。
+- **内容分发计划**：一次编写，给不同账号生成独立发布任务和专属文案；避免重复分配。
+- **审核与发布提醒**：待审核 → 待手动发布 → 已标记发布 → 人工核实；结果不明时锁定任务，避免误重发。
+- **素材包交接**：给每个账号打包正文 TXT、发布说明与图片 ZIP，自行传输到对应设备。
+- **隐私优先**：本机保存，默认只允许本机浏览器访问；不索取平台密码或密钥。
 
-## 最快开始
+**“发布提醒”目前是工作台内的待办和流程提示，不是后台定时推送，更不是到点自动发帖。**
 
-安装 [Node.js](https://nodejs.org/) **22 或 24** 和 npm：
+## 安装并运行
+
+需要 Node.js 22/24 和 npm：
 
 ```bash
 git clone https://github.com/AIMarshallLee/kadadesk-community.git
@@ -28,9 +30,9 @@ npm ci
 npm run dev
 ```
 
-终端会输出 `http://127.0.0.1:<端口>`。在**当前这台电脑**浏览器打开。仅监听本机，不要拿这个地址给其他设备或公开反向代理。
+打开终端显示的本机地址，例如 `http://127.0.0.1:<端口>`。手机或另一台电脑不能直接访问这个本机地址；需要将每个任务的 ZIP 素材包手动传输过去。
 
-数据默认保存在 `~/.kadadesk-community/`，不需注册、微信密码或 AI Key。
+本地运营数据默认位于 `~/.kadadesk-community/`。不需要账号注册、云服务器或 AI Key。
 
 ```bash
 npm test
@@ -38,16 +40,24 @@ npm run smoke
 npm run build
 ```
 
-## 使用顺序
+## 五步操作
 
-进入 **我的账号 → 批量登记 → 内容库 → 发布任务**。选择内容和多个号，逐号调整、人工审核后导出专属 ZIP；到对应的原生微信客户端手动发，再回到这里核实结果。详见 [中文操作手册](docs/USER-GUIDE.zh-CN.md)。
+1. **社媒账号管理**：登记账号备注、目标平台和所用设备（平台仅作分类）。
+2. **图文素材库**：准备正文与图片。
+3. **内容分发计划**：选择要使用该内容的账号，各自生成独立任务。
+4. **审核 / 获取发布素材包**：检查专属文案、平台和目标账号，下载 ZIP，在目标平台自己的客户端手动发布。
+5. **确认发布结果**：在对应账号已发布内容列表中核对后，回工作台标记人工核实；不确定则保持锁定，避免重复操作。
 
-## 参与社区
+详细流程见 [中文操作手册](docs/USER-GUIDE.zh-CN.md)。
 
-欢迎提 [Issue](https://github.com/AIMarshallLee/kadadesk-community/issues)、测试和提交 PR。先阅读 [贡献说明](CONTRIBUTING.md)、[安全策略](SECURITY.md)。商业授权见 [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md)，公开边界见 [EXTRACTION-AUDIT](docs/EXTRACTION-AUDIT.md)。大量代码贡献在合并前可能需要单独的贡献者授权，以保持社区版及商业版的权利清晰。
+## 社区协作与许可
 
----
+当前许可证为 [KADAdesk Community Source License v0.1](LICENSE)：**源码可见，并非 OSI 标准开源许可证**。个人、团队用在自己或获授权的账号上，包括这些账号的正常内容经营，按照许可条款免费使用；出售或贴牌软件、商业 SaaS 和向外部客户提供收费的软件运营服务须另行取得书面商业授权。
 
-**English:** Local-first, source-available personal WeChat Moments planning for multiple user-owned/authorized accounts. Manual native-app publishing and human verification only; no official personal-WeChat publishing API. The community license is **not OSI open source**. See [LICENSE](LICENSE).
+欢迎反馈和贡献：参见 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md)、[COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) 及 [源码提取审计](docs/EXTRACTION-AUDIT.md)。商业再授权及第三方贡献的版权边界需在合并代码前确认。
+
+### English
+
+KADAdesk Community is a **local-first content publishing planner**, not a platform publishing API. Prepare image-and-text content once, create independent account tasks, review variants, hand off ZIP bundles and manually verify publication. Platform labels such as Instagram, X or Facebook are organizational metadata only. There is **no direct publishing, scheduling push notification, account login or cloud sync**. This project is source-available, not OSI open source. Read [LICENSE](LICENSE).
 
 Copyright (c) 2026 AIMarshallLee and relevant contributors.

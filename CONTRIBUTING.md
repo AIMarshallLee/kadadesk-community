@@ -1,6 +1,6 @@
 # Contributing to KADAdesk Community
 
-We welcome reproducible bug reports, local UI improvements, documentation, synthetic tests and new safe workflow ideas. Please do not submit real chat records, passwords, WeChat IDs, cookies, access tokens, payment credentials, device dumps or other people's private content.
+We welcome reproducible bug reports, local UI improvements, documentation, synthetic tests and new safe workflow ideas. Please do not submit real chat records, passwords, social account identifiers, cookies, access tokens, payment credentials, device dumps or other people's private content.
 
 ## Workflow
 
@@ -8,7 +8,7 @@ We welcome reproducible bug reports, local UI improvements, documentation, synth
 2. Fork, create a feature branch, and explain user-visible behavior.
 3. Run `npm ci && npm test && npm run smoke && npm run build`.
 4. Include tests, screenshots with synthetic content only, and third-party license attribution.
-5. Never add private KADAdesk commercial/payment/authorization code, unsupported WeChat publishing methods, process injection or stealth automated posting.
+5. Never add private KADAdesk commercial/payment/authorization code, unauthorized platform publishing methods, process injection or stealth automated posting.
 
 ## Copyright and commercial rights
 

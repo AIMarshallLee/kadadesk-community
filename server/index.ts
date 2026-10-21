@@ -96,10 +96,10 @@ export async function createLocalServer(options:{dataDir:string;port?:number}) {
 if(process.argv[1] && resolve(process.argv[1])===resolve(fileURLToPath(import.meta.url))) {
   const dataDir=process.env.KADADESK_COMMUNITY_DATA_DIR || join(homedir(),'.kadadesk-community');
   const app=await createLocalServer({dataDir,port:process.env.PORT?Number(process.env.PORT):0});
-  console.log('KADAdesk Community · 朋友圈运营中心');
+  console.log('KADAdesk Community · 内容发布工作台');
   console.log('Open in your browser: '+app.url);
   console.log('Data stored locally in: '+dataDir);
-  console.log('No real WeChat account is logged into or posted to automatically.');
+  console.log('No social platform account is logged in or posted to automatically.');
   const end=async()=>{await app.close();process.exit(0);};
   process.once('SIGINT',()=>void end());process.once('SIGTERM',()=>void end());
 }

@@ -14,4 +14,4 @@ assignees: ""
 
 **Reproduction using synthetic data only:**
 
-**Privacy:** No real WeChat IDs, private chats, passwords, keys, tokens, personal data, or proprietary customer material are attached.
+**Privacy:** No real social account identifiers, private chats, passwords, keys, tokens, personal data, or proprietary customer material are attached.

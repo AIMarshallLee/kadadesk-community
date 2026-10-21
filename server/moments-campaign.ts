@@ -3,11 +3,11 @@ import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { ApiError } from './autopilot.ts';
 
-// Personal WeChat Moments V1.0: local human-operated task ledger. No WeChat credentials,
+// Personal social media content V1.0: local human-operated task ledger. No social-platform credentials,
 // account discovery, browser automation, background sending or platform endpoints.
 export type DeviceKind = 'windows' | 'mac' | 'phone';
 export type MomentsAccount = {
-  id: string; name: string; device: DeviceKind; deviceLabel: string;
+  id: string; name: string; platform?: string; device: DeviceKind; deviceLabel: string;
   enabled: boolean; version: number; createdAt: string; updatedAt: string;
 };
 export type MomentsAsset = { id: string; name: string; mime: string; size: number; sha256: string; createdAt: string };
@@ -20,7 +20,7 @@ export type MomentsCampaign = {
 export type MomentsJobStatus = 'review' | 'approved' | 'handoff' | 'reported' | 'verified' | 'unknown' | 'skipped' | 'stale';
 export type MomentsJob = {
   id: string; campaignId: string; accountId: string; accountVersion: number;
-  accountName: string; deviceLabel: string; contentTitle: string;
+  accountName: string; accountPlatform?: string; deviceLabel: string; contentTitle: string;
   contentId: string; contentVersion: number; text: string; assetIds: string[];
   visibility: string; status: MomentsJobStatus; fingerprint: string; approvedFingerprint?: string;
   handoffAt?: string; reportedAt?: string; verifiedAt?: string; updatedAt: string; createdAt: string;
@@ -48,7 +48,7 @@ function fingerprint(job: Pick<MomentsJob, 'accountId' | 'accountVersion' | 'con
 function checkData(value: unknown): asserts value is Data {
   const d = value as Data;
   if (!d || d.schema !== 1 || !Array.isArray(d.accounts) || !Array.isArray(d.assets) || !Array.isArray(d.content) || !Array.isArray(d.campaigns) || !Array.isArray(d.jobs))
-    throw new Error('朋友圈运营数据结构无法识别；原始文件已保留');
+    throw new Error('内容发布运营数据结构无法识别；原始文件已保留');
 }
 
 export async function createMomentsOperations(dataDir: string) {
@@ -85,12 +85,12 @@ export async function createMomentsOperations(dataDir: string) {
   });
   const account = (id: string) => {
     const found = data.accounts.find(a => a.id === id);
-    if (!found) throw new ApiError(404, '微信账号不存在');
+    if (!found) throw new ApiError(404, '账号不存在');
     return found;
   };
   const item = (id: string) => {
     const found = data.content.find(c => c.id === id);
-    if (!found) throw new ApiError(404, '朋友圈内容不存在');
+    if (!found) throw new ApiError(404, '内容不存在');
     return found;
   };
   const job = (id: string) => {
@@ -117,7 +117,7 @@ export async function createMomentsOperations(dataDir: string) {
         verified: data.jobs.filter(j => j.status === 'verified').length,
         unknown: data.jobs.filter(j => j.status === 'unknown').length,
       },
-      provider: { personalWechatApi: false, autoPublishEnabled: false, postingVerifiedAutomatically: false },
+      provider: { platformDirectPublishApi: false, autoPublishEnabled: false, postingVerifiedAutomatically: false },
     };
   }
   async function handle(method: string, path: string, body: Record<string, unknown> = {}): Promise<unknown> {
@@ -130,7 +130,7 @@ export async function createMomentsOperations(dataDir: string) {
       const name = required(body.name, '账号备注', 80);
       if (data.accounts.some(a => a.name === name)) throw new ApiError(409, '账号备注重复，请使用唯一名称');
       const t = now();
-      const created: MomentsAccount = { id: randomUUID(), name, device, deviceLabel: required(body.deviceLabel, '设备名称', 120),
+      const created: MomentsAccount = { id: randomUUID(), name, platform: body.platform === undefined ? '其他平台' : required(body.platform, '平台名称', 60), device, deviceLabel: required(body.deviceLabel, '设备名称', 120),
         enabled: true, version: 1, createdAt: t, updatedAt: t };
       data.accounts.push(created); return created;
     });
@@ -150,7 +150,7 @@ export async function createMomentsOperations(dataDir: string) {
         const deviceLabel = required(entry.deviceLabel, '设备名称', 120);
         existingNames.add(name);
         const t = now();
-        added.push({ id: randomUUID(), name, device: entry.device as DeviceKind, deviceLabel,
+        added.push({ id: randomUUID(), name, platform: entry.platform === undefined ? '其他平台' : required(entry.platform, '平台名称', 60), device: entry.device as DeviceKind, deviceLabel,
           enabled: true, version: 1, createdAt: t, updatedAt: t });
       }
       data.accounts.push(...added);
@@ -164,11 +164,12 @@ export async function createMomentsOperations(dataDir: string) {
       if (body.enabled !== undefined && typeof body.enabled !== 'boolean') throw new ApiError(400, '账号状态无效');
       const name = body.name === undefined ? a.name : required(body.name, '账号备注', 80);
       if (data.accounts.some(x => x.id !== a.id && x.name === name)) throw new ApiError(409, '账号备注重复');
+      const platform = body.platform === undefined ? (a.platform ?? '其他平台') : required(body.platform, '平台名称', 60);
       const device = body.device === undefined ? a.device : body.device as DeviceKind;
       const deviceLabel = body.deviceLabel === undefined ? a.deviceLabel : required(body.deviceLabel, '设备名称', 120);
       const enabled = body.enabled === undefined ? a.enabled : body.enabled;
-      if (name !== a.name || device !== a.device || deviceLabel !== a.deviceLabel || enabled !== a.enabled) {
-        Object.assign(a, { name, device, deviceLabel, enabled, version: a.version + 1, updatedAt: now() });
+      if (name !== a.name || platform !== (a.platform ?? '其他平台') || device !== a.device || deviceLabel !== a.deviceLabel || enabled !== a.enabled) {
+        Object.assign(a, { name, platform, device, deviceLabel, enabled, version: a.version + 1, updatedAt: now() });
         for (const j of data.jobs) if (j.accountId === a.id && ['review','approved','handoff'].includes(j.status)) { j.status = 'stale'; j.updatedAt = now(); }
       }
       return a;
@@ -213,7 +214,7 @@ export async function createMomentsOperations(dataDir: string) {
       if (assetIds.some(id => !data.assets.some(a => a.id === id))) throw new ApiError(400, '图片引用不存在');
       const t = now();
       const created: MomentsContent = { id: randomUUID(), title: required(body.title, '内容标题', 120),
-        text: required(body.text, '朋友圈正文', 5000), assetIds: [...assetIds], version: 1, createdAt: t, updatedAt: t };
+        text: required(body.text, '发布正文', 5000), assetIds: [...assetIds], version: 1, createdAt: t, updatedAt: t };
       data.content.push(created); return created;
     });
     const contentMatch = path.match(/^\/moments\/content\/([^/]+)$/);
@@ -221,7 +222,7 @@ export async function createMomentsOperations(dataDir: string) {
       const c = item(contentMatch[1]);
       if (body.expectedVersion !== c.version) throw new ApiError(409, '内容版本已更新，请刷新后再编辑');
       const title = body.title === undefined ? c.title : required(body.title, '内容标题', 120);
-      const text = body.text === undefined ? c.text : required(body.text, '朋友圈正文', 5000);
+      const text = body.text === undefined ? c.text : required(body.text, '发布正文', 5000);
       const assetIds = body.assetIds === undefined ? c.assetIds : assetRefs(body.assetIds);
       if (assetIds.some(id => !data.assets.some(a => a.id === id))) throw new ApiError(400, '图片引用不存在');
       if (title !== c.title || text !== c.text || JSON.stringify(assetIds) !== JSON.stringify(c.assetIds)) {
@@ -244,7 +245,7 @@ export async function createMomentsOperations(dataDir: string) {
       for (const aId of accountIds) {
         const a = account(aId);
         const j: MomentsJob = { id: randomUUID(), campaignId: created.id, accountId: a.id,
-          accountVersion: a.version, accountName: a.name, deviceLabel: a.deviceLabel, contentTitle: c.title,
+          accountVersion: a.version, accountName: a.name, accountPlatform: a.platform ?? '其他平台', deviceLabel: a.deviceLabel, contentTitle: c.title,
           contentId: c.id, contentVersion: c.version,
           text: c.text, assetIds: [...c.assetIds], visibility: '发布前手动核对可见范围', status: 'review',
           fingerprint: '', createdAt: t, updatedAt: t };
@@ -276,7 +277,7 @@ export async function createMomentsOperations(dataDir: string) {
         if (j.status !== 'approved') throw new ApiError(409, '任务尚未审核或已交接，禁止重复');
         assertCurrent(j);
         if (body.accountId !== j.accountId || body.identityConfirmed !== true || body.expectedFingerprint !== j.approvedFingerprint)
-          throw new ApiError(409, '必须明确确认当前原生微信登录的是目标账号，且素材与审核内容一致');
+          throw new ApiError(409, '必须明确确认当前目标平台应用登录的是目标账号，且素材与审核内容一致');
         j.status = 'handoff'; j.handoffAt = now();
       } else if (action === 'report') {
         if (j.status !== 'handoff') throw new ApiError(409, '需要先交接后才能登记结果');
@@ -286,18 +287,18 @@ export async function createMomentsOperations(dataDir: string) {
       } else if (action === 'verify') {
         if (j.status !== 'reported') throw new ApiError(409, '只能核实已人工报告发布的任务');
         if (body.accountId !== j.accountId || body.timelineConfirmed !== true || body.expectedFingerprint !== j.approvedFingerprint)
-          throw new ApiError(409, '必须核对目标账号本人朋友圈中的实际内容');
+          throw new ApiError(409, '必须核对目标账号该账号的已发布内容列表中的实际内容');
         j.status = 'verified'; j.verifiedAt = now();
       } else if (action === 'resolve-unknown') {
         if (j.status !== 'unknown') throw new ApiError(409, '只有结果不确定的任务可以人工解除');
         if (body.accountId !== j.accountId || body.confirmedNotPublished !== true)
-          throw new ApiError(409, '必须由操作员核实该账号朋友圈中确实没有发布，才允许重试');
+          throw new ApiError(409, '必须由操作员核实该账号发布页面中确实没有发布，才允许重试');
         assertCurrent(j);
         j.status = 'review'; j.approvedFingerprint = undefined; j.handoffAt = undefined; j.reportedAt = undefined;
       } else throw new ApiError(404, '发布操作不存在');
       j.updatedAt = now(); return j;
     });
-    throw new ApiError(404, '朋友圈运营接口不存在');
+    throw new ApiError(404, '内容发布运营接口不存在');
   }
   return { handle };
 }
