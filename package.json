@@ -11,7 +11,7 @@
     "dev": "npm run build && npm start",
     "start": "tsx server/index.ts",
     "build": "tsc --noEmit && vite build",
-    "test": "tsx --test server/*.test.ts",
+    "test": "npm run build && tsx --test server/*.test.ts",
     "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
