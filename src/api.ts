@@ -1,6 +1,6 @@
 const token=()=>document.querySelector<HTMLMetaElement>('meta[name="api-token"]')?.content || '';
 export async function api<T=any>(method:string,path:string,body?:unknown):Promise<T> {
-  if (!/^\/(?:moments|plugins)(?:\/|$)/.test(path)) throw new Error('Unsupported community route');
+  if (!/^\/(?:moments|plugins|knowledge)(?:\/|$)/.test(path)) throw new Error('Unsupported community route');
   const result=await fetch('/api'+path,{
     method,
     headers:{'x-kadadesk-token':token(),...(body === undefined ? {} : {'content-type':'application/json'})},

@@ -6,6 +6,7 @@ import { readFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { createMomentsOperations } from './moments-campaign.ts';
 import { createPluginHost } from './plugin-host.ts';
+import { createCommunityKnowledge } from './knowledge-community.ts';
 import { ApiError } from './autopilot.ts';
 import { isAllowedRequest } from '../desktop/guards.ts';
 
@@ -39,6 +40,7 @@ export async function createLocalServer(options:{dataDir:string;port?:number}) {
   await mkdir(options.dataDir,{recursive:true,mode:0o700});
   const moments=await createMomentsOperations(options.dataDir);
   const plugins=await createPluginHost(options.dataDir);
+  const knowledge=await createCommunityKnowledge(options.dataDir);
   const token=randomBytes(32).toString('hex');
   let activePort=0;
   const server=createServer(async(req,res)=>{
@@ -59,13 +61,18 @@ export async function createLocalServer(options:{dataDir:string;port?:number}) {
         const path=pathname.slice('/api'.length);
         const isContent = path==='/moments'||path.startsWith('/moments/');
         const isPlugin = path==='/plugins'||path.startsWith('/plugins/');
-        if(!isContent&&!isPlugin)return fail(res,404,'接口不存在');
+        const isKnowledge=path==='/knowledge'||path.startsWith('/knowledge/');
+        if(!isContent&&!isPlugin&&!isKnowledge)return fail(res,404,'接口不存在');
         const method=(req.method||'GET').toUpperCase();
         if(!['GET','POST','PUT'].includes(method))return fail(res,405,'不支持该方法');
         if(isContent&&!isAllowedRequest({method,path}))return fail(res,404,'接口不存在');
+        const allowedKnowledge=(method==='GET'&&path==='/knowledge')||
+          (method==='POST'&&(path==='/knowledge'||path==='/knowledge/search'||/^\/knowledge\/[a-f0-9-]{36}\/(?:approve|enable|disable|delete)$/.test(path)));
+        if(isKnowledge&&!allowedKnowledge)return fail(res,404,'接口不存在');
         if(isContent)plugins.requireEnabled('com.kadadesk.content-ops');
+        if(isKnowledge)plugins.requireEnabled('com.kadadesk.knowledge');
         const body=method==='GET'?{}:await parseJson(req);
-        const result=isPlugin?await plugins.handle(method,path):await moments.handle(method,path,body);
+        const result=isPlugin?await plugins.handle(method,path):isKnowledge?await knowledge.handle(method,path,body):await moments.handle(method,path,body);
         res.writeHead(200,{'content-type':'application/json; charset=utf-8'});
         return res.end(JSON.stringify(result));
       }
