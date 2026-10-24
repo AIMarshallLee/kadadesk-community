@@ -1,58 +1,94 @@
-KADAdesk Community Source License v0.1
-Copyright (c) 2026 AIMarshallLee and applicable KADAdesk contributors.
+KADAdesk Personal & Community Source License, Version 0.2
+Effective for source distributed with this license beginning 2026-10-24.
+Copyright (c) 2026 AIMarshallLee and the respective copyright owners.
 All rights not expressly granted are reserved.
 
-IMPORTANT: THIS IS A SOURCE-AVAILABLE COMMUNITY LICENSE, NOT AN OSI-APPROVED
-OPEN-SOURCE LICENSE. A publicly visible repository does NOT grant a general
-right to commercially resell, relicense or offer this software as a SaaS.
+IMPORTANT NOTICE
+This is a SOURCE-AVAILABLE, PERSONAL NON-COMMERCIAL LICENSE.
+It is NOT an OSI-approved open-source license. You must obtain a separate
+written authorization for organization use or commercial use, including
+private/internal business deployment even when the software is not sold.
 
-1. Grant. Each copyright holder grants you a worldwide, non-exclusive,
-royalty-free right to download, run, inspect, test, modify and distribute
-the Community Edition and permitted derivatives for Community Use only,
-subject to the conditions below.
+1. Covered Work and Copyright
+"Software" means the original KADAdesk code, documentation and modifications
+that are expressly provided under this Version 0.2 license. Third-party
+components remain governed by their own licenses. A contributor can grant
+permissions only for rights that contributor actually owns.
 
-2. Community Use:
-(a) private study, research, testing, evaluation, education and hobbies;
-(b) an individual, creator or organization using the software to prepare
-    content and manage social accounts it owns or is explicitly authorized
-    to operate FOR ITS OWN USE, including where those accounts have ordinary
-    advertising, affiliate, content or business revenue, PROVIDED it does
-    not charge external customers to use or operate this software for them;
-(c) contributing permitted changes to the community under the same terms.
+2. Free Personal Community License
+Subject to all terms, copyright holders grant an individual a worldwide,
+non-exclusive, non-transferable, royalty-free license to download, inspect,
+run, test, adapt and share the Software for PERSONAL NON-COMMERCIAL purposes
+only. This includes independent learning, research, hobby experiments,
+running it on personal devices, and public community development.
 
-3. Separate prior WRITTEN commercial authorization is required for:
-(a) selling, renting, white-labeling, relicensing or reselling copies of
-    this software, or products substantially derived from it;
-(b) hosting or offering the software itself as a paid SaaS, API or service
-    to third parties;
-(c) integrating it into a sold software product or operating it as part
-    of a paid managed service for external customers.
-    Merely earning revenue from content on YOUR OWN accounts does not
-    by itself trigger paragraph 3.
+An individual may fork and distribute changes for the same permitted
+PERSONAL NON-COMMERCIAL purpose if all original copyright notices, this
+LICENSE, third-party notices and a clear statement of the modifications
+remain with the distributed source. Recipients obtain only the permissions
+specified by this license, directly from the relevant rights holders.
 
-4. Sharing changes. You may distribute permitted copies and modifications
-for Community Use only if you retain this complete LICENSE, preserve
-copyright and third-party notices, clearly mark modifications, and make
-the covered source available to recipients under these same terms.
-You may not represent that commercial use has been licensed.
+3. Uses That Require Prior Written Authorization
+Without a separate written commercial/organization license you may NOT:
+(a) deploy, operate, evaluate in a production workflow or provide the
+    Software for use by a company, other organization, employer, government,
+    non-profit or their personnel as part of the organization's activities,
+    even for internal use, even if there is no resale, and even if the
+    organization is not earning a profit;
+(b) use the Software as part of a paid service, professional consulting,
+    client delivery, sales, marketing, revenue-generating content operation,
+    business workflow or other activity pursued for economic benefit,
+    including an individual's sole-proprietor business;
+(c) resell, rent, relicense, sublicense, white-label, charge for access,
+    operate as SaaS, offer hosted access to third parties, or integrate the
+    Software in a commercial product, hosted service or managed service;
+(d) grant any third party the right to perform the prohibited acts above.
+Merely owning a business or working for a company does not disqualify an
+individual from separate, genuinely personal hobby/research use. The actual
+purpose and beneficiary of use, not the device ownership alone, controls.
 
-5. This license grants no trademark, official KADAdesk vendor status,
-third-party platform API entitlement, platform account access, or rights
-to personal/customer data. Comply with applicable law and platform rules.
+4. No Implied Platform or Data Rights
+This license does NOT grant a license to KADAdesk trademarks or logos
+beyond factual attribution; access to any platform API, account, private
+protocol, personal/customer data, proprietary hardware firmware, or
+third-party assets. Follow applicable laws and platform terms.
 
-6. External libraries, assets and third-party code remain governed by
-their own licenses. This grant covers only rights each licensor owns.
-This license does not transfer copyrights in third-party contributions.
-Commercial relicensing of contributions may require a separate CLA.
+5. Security, Distribution and Contributions
+Do not include passwords, tokens, customer records, private conversations
+or unauthorized third-party materials in community contributions.
+Contributors retain copyright to their independent contributions. A
+pull request alone does NOT transfer copyright or grant the project owner
+permission to relicense a contributor's code commercially; that requires
+a separate written contributor agreement or other express permission.
+The project can decline contributions without compatible rights.
 
-7. The software is provided AS IS without warranties. To the maximum
-extent law permits, licensors disclaim liability for its use.
-Uses not expressly authorized require the relevant copyright holder's
-prior written consent; violations terminate permission for those uses.
+6. Termination and No Warranty
+Rights granted under this license terminate for a licensee upon breach,
+without limiting remedies available under law. The Software is provided
+"AS IS" without warranties of merchantability, fitness, security, platform
+compatibility or non-infringement, to the extent permitted by law. Liability
+is disclaimed to the maximum extent permitted by applicable law.
 
-Non-authoritative Chinese summary:
-个人学习研究、修改交流，以及用在自己或获授权的个人账号上经营内容，
-即使账号有正常内容收入，也允许免费。出售/贴牌软件、提供收费 SaaS、
-对外收费代运营本软件或集成为对外出售的产品，需事先取得书面商业授权。
-本许可证是源码开放许可，并非符合 OSI 标准的开源软件许可证。
-正式扩大推广前，建议由律师复核这一社区许可版本。
+7. Earlier Versions and Future Releases
+This Version 0.2 governs only copies and original code offered under it.
+It does NOT retroactively withdraw permissions already granted for older
+copies under an earlier license, subject to the older license's terms.
+Source available in the repository's past public commit history may have
+different license terms; consult the LICENSE at the particular commit.
+Future versions may use different terms only for newly licensed copies.
+
+8. Commercial Licensing Contact
+Written permission for internal organizational use, deployments, customer
+delivery, white-label, SaaS or other excluded purposes must be obtained
+from the relevant copyright owner(s). Start with the repository owner or
+https://kunlungrowth.com for commercial discussion. Merely contacting the
+owner does not grant permission.
+
+中文说明（便于理解，发生解释差异时以英文条款为主）：
+- 个人学习、研究、个人电脑实验及非商业共创：免费。
+- 公司/组织内部经营使用或部署，即使不卖软件：需要事先书面授权。
+- 个人把软件用于收费服务、带货/内容变现、商业客户运营：需要书面授权。
+- Fork 和贡献可以，但只按本许可证传播；商业再授权贡献代码须另有书面授权。
+- 本许可是「源码可见/个人非商业」，不是 MIT/Apache，也不是 OSI 标准开源。
+- v0.1 时代已经授予的许可不会因为发布 v0.2 自动失效。
+- 正式规模商业化前建议进行相应法域的软件许可法律复核。

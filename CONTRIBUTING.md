@@ -1,18 +1,22 @@
 # Contributing to KADAdesk Community
 
-We welcome reproducible bug reports, local UI improvements, documentation, synthetic tests and new safe workflow ideas. Please do not submit real chat records, passwords, social account identifiers, cookies, access tokens, payment credentials, device dumps or other people's private content.
+KADAdesk is intended to become a useful extensible AI workspace for developers, not merely a read-only demo. We welcome code, adapters with legitimate platform access, tests, docs, reusable enterprise workflows and issue reports.
 
-## Workflow
+## How to contribute
 
-1. Open an Issue before starting a large change.
-2. Fork, create a feature branch, and explain user-visible behavior.
-3. Run `npm ci && npm test && npm run smoke && npm run build`.
-4. Include tests, screenshots with synthetic content only, and third-party license attribution.
-5. Never add private KADAdesk commercial/payment/authorization code, unauthorized platform publishing methods, process injection or stealth automated posting.
+1. Read [LICENSE](LICENSE), [COMMERCIAL-LICENSE.md](COMMERCIAL-LICENSE.md) and [SECURITY.md](SECURITY.md). The code is **source-available for personal non-commercial use** and is not OSI open source.
+2. Open an Issue for larger changes. Fork, create a topic branch, and send a focused pull request.
+3. Run `npm ci && npm test && npm run smoke && npm run build`. Explain user-visible changes, edge cases, compatibility and limitations.
+4. Use only synthetic data. Never include credentials, cookies, customer identities, real conversations, screenshots, private documents, proprietary vendor code, payment secrets or account bypasses.
+5. Do not add auto-control features for third-party platforms without a documented official authorization and a separate permission-aware connector.
+6. Keep the workspace core independent of business plugins. Prefer additive, scoped APIs and reversible enable/disable controls.
 
-## Copyright and commercial rights
+## Contributions and dual licensing
 
-This project is source-available under [LICENSE](LICENSE), **not MIT/Apache**.
-Contributors keep their own copyright. A GitHub PR does not assign copyright or grant an automatic commercial sublicense to maintainers. For contributions that may be included in both community and commercial editions, maintainers may require a separately signed Contributor License Agreement before merging. Until a documented CLA process is ready, we may hold substantive code PRs for licensing review; Issues, bug reports and tests are welcome.
+You retain rights in your own original code. **A PR alone does not give the project owner a commercial relicensing right.** Code intended for community-and-commercial dual use requires an explicit Contributor License Agreement or other suitable written grant before merge, and a maintainer review of any dependencies. Until a compatible process is established, larger code PRs may be held for rights review.
 
-No automatic promise of free one-to-one support, merge acceptance or access to the private core. Security reports should follow [SECURITY.md](SECURITY.md).
+Companies wishing to deploy or internally operate KADAdesk need separate written authorization, even if they are not reselling it. This does not restrict personal hobby contributions made independently from company duties.
+
+## Releases and safety
+
+There is currently no guarantee of third-party plugin sandboxing, auto-installation, unattended account operation or compatibility with every desktop application. Respect `docs/PUBLICATION-POLICY.md` when publishing a fresh source snapshot. Report sensitive security problems privately using the guidance in [SECURITY.md](SECURITY.md). Maintainers are not obliged to provide free one-on-one deployment support.
