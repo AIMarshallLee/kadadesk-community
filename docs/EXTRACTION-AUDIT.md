@@ -1,37 +1,40 @@
-# 源码公开筛选与边界审计｜2026-10-21
+# KADAdesk Community｜公开代码筛选与发布审计（2026-10-24）
 
-## 来源和安全原则
+## 双仓库隔离
 
-上游私有仓库：`AIMarshallLee/kadadesk`，候选版本 `87d75a10a6e47cff3e5c064893db8596f3c75f99`，开发分支 `codex/multi-account-moments-v1`。
+- 原始产品：`AIMarshallLee/kadadesk`，**Private**。原始 Git 历史、商户签名/授权后台和需验证的桌面/设备操作仍保留在这里。
+- 社区产品：`AIMarshallLee/kadadesk-community`，**Public**。从独立创建的 Git 历史继续开发，源码只通过全新的公共提交导入，绝不镜像原仓库历史。
 
-社区仓库采用**全新 Git 历史**，没有 Fork 原私有仓库，也没有复制原仓库历史或发布包。
+## 已明确公开并可构建的资产
 
-## 公开清单
-
-| 来源 | 处理 | 用途 |
+| 文件或模块 | 来源和处理 | 验收 |
 | --- | --- | --- |
-| `server/moments-campaign.ts` | 选择性复制，替换私有错误类为社区轻量类 | 多账号、内容版本、逐账号任务、防重复、人工审核、发布状态 |
-| `server/moments-campaign.test.ts` | 复制合成用例 | 8个模拟账号、状态、持久化与隔离 |
-| `src/MomentsCenter.tsx` | 选择性复制，接入独立本地UI壳 | 账号登记、内容库、任务与复盘 |
-| `src/moments-export.ts` | 复制 | ZIP 文案与配图打包 |
-| 独立 `src/api.ts`, `src/components.tsx`, `server/index.ts` | 新建社区专用实现 | 不依赖私有许可/桌面/云服务 |
-| React / Lucide / Vite / TypeScript / tsx | 依照公共 npm 依赖安装，不直接复制私有依赖目录 | 自有第三方许可证仍适用 |
+| `server/moments-campaign.ts`、`src/MomentsCenter.tsx`、`src/moments-export.ts` | 原私有代码中选择的本地内容/任务运营逻辑，剥离商业依赖后发布 | 合成多账号、版本、审批和素材导出测试 |
+| `server/plugin-host.ts`、`src/WorkspaceApp.tsx` | 社区独立开发的可信内置模块管理底座 | 服务端接口阻断、启停持久化 |
+| `server/knowledge-query.ts` | 从私有分支 `codex/trial67-dual-mode-beta` 筛选的原始查询规范化纯函数；新公共提交，不带历史 | Source review + CI |
+| `sdk/abortable-delay.ts` | 从私有分支筛选的可取消延迟工具，不涉及桌面执行 | Source review + 测试 |
+| `server/knowledge-community.ts`、`src/KnowledgeCenter.tsx` | 社区新写的独立单机知识模块，使用上述查询纯函数 | 录入、人工审核、检索、启停、删除、重启后恢复 |
+| `scripts/verify-publication.mjs` | 公共仓库自动文件类型/密钥/敏感信息扫描 | 每个 PR 和 main 构建时执行 |
+| `LICENSE` + 商用说明 | v0.2 个人非商业条款；旧版授予权保留 | 许可版本文档化 |
 
-## 明确不公开
+目前社区里**不是**完整桌面咔哒商业版：知识模块只支持本地文字内容，尚未迁入原有复杂文档导入、企业权限和 AI 模型辅助；内容模块仍是人工发布任务。
 
-- `server/license*`、`server/commerce*`、`server/merchant-*`、`scripts/merchant-*`：收费、签名、授权、支付、商户私有服务。
-- `desktop/replies-ipc.ts`、`desktop/moments-probe.ts`、自动化执行/窗口控制器、`shared/autopilot*`：原生客户端控制和平台边界。
-- `firmware/`、RP2040/Pika USB 硬件桥：设备功能及多方版权审计尚未做独立发布。
-- 模型服务商配置、外部数据连接器、客户私域信息、内部知识库、任何录屏、真实聊天、密钥、企业合同、商业许可证。
-- 私有主仓库完整 Git 历史：避免泄露已经删除的旧文件、密钥或商业实现。
+## 当前未公开
 
-## 预发布及后续复核
+- 原始 Private 仓库的任何 `.git` / Git commit DAG / 已删除历史资产。
+- 密钥、cookie、模型秘钥、客户档案、真实聊天、录音、客户专属知识库和含 PII 的截图。
+- 商业支付、授权签名、商户后台和个人交易资料。
+- 未获版权和再分发许可的第三方依赖、固件和私有资产。
+- 未经过合法授权、真实测试的特定平台后台控制及渠道自动发送。
+- 原始 `desktop/` 复杂执行与 `firmware/` 设备部分尚待逐模块评审，而不是默认永不公开。
 
-1. 对**即将推送到公共仓库的实际跟踪文件**运行密钥/隐私/敏感模块名称扫描，并人工检查命中项。
-2. 检查版权归属，外部来源代码不能因为处于公司私有仓库就认定可单独重新许可。
-3. 审查新许可证：目前为 Community Source License v0.1，自用可经营内容，但再售/SaaS/外部客户服务需要书面授权；这不是 OSI 开源许可证。
-4. 验证 Windows 和 macOS 的安装流程；当前 Web 测试不代表各平台客户端的实际手动发布验收。
-5. 数据保存在 `~/.kadadesk-community/`；手机只靠人工 ZIP 文件交接，不宣称跨设备同步。
-6. 社区代码贡献与商业双重许可需要独立版权协议，提交 PR 不等于默许商业重授权。
+## 迁移和验证关卡
 
-**筛选结果：首批只公开“独立可用的图文内容发布管理”模块；不要直接把整个私有仓库改 Public。**
+1. **默认拒绝**：私有仓库里的 `docs/community-export-allowlist.json` 是显式白名单，没有批准的文件不能迁出。
+2. 私有仓库 `scripts/community-snapshot-audit.mjs` 是离线检查及导出工具，产生**新文件快照**而不是 Git 克隆历史。其真实本机运行仍需复核。
+3. 每批公开文件都检查依赖、真实客户资料、第三方权利、敏感平台接口和许可证兼容性。
+4. 社区 `node scripts/verify-publication.mjs` + TypeScript/Vite 构建 + 回归测试 + PR 人工审查。
+5. GitHub Actions Node 22/24 均通过： [社区首次双模块合并 PR #1](https://github.com/AIMarshallLee/kadadesk-community/pull/1)。
+6. 客户生产环境/Windows 和 macOS 桌面原生体验，以及第三方渠道真实验收，仍未证明。
+
+**提示：** 模式匹配扫描不是完整法律或隐私审计。不能因为 CI 绿灯就认定所有版权、客户许可和供应商协议已经被复核。v0.2 是 Source-Available 个人非商业许可，不等同 OSI 标准开源，历史 v0.1 许可不会追溯消失。
