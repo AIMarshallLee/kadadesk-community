@@ -18,6 +18,10 @@ const catalog = [{
   id:'com.kadadesk.content-ops', name:'内容运营', version:'0.1.0',
   description:'图文素材、独立账号任务、人工发布与结果核实',
   bundled:true, downloadable:false, permissions:['local-data:content-ops','file-export:user-initiated'], apiPrefix:'/moments',
+}, {
+  id:'com.kadadesk.knowledge', name:'基础知识库', version:'0.1.0',
+  description:'单机知识录入、人工审核、检索与本地存储',
+  bundled:true, downloadable:false, permissions:['local-data:knowledge','knowledge:manual-review'], apiPrefix:'/knowledge',
 }] as const;
 const getDescriptor = (id:string) => catalog.find(x=>x.id===id);
 export async function createPluginHost(dataDir:string) {
