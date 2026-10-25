@@ -60,17 +60,40 @@ export default function PluginsPage({ notify }: { notify: Notify }) {
 
 function Installer({ busy, act, notify }: { busy: boolean; act: (w: () => Promise<PluginsView | undefined>, done?: string) => Promise<void>; notify: Notify }) {
   const [text, setText] = useState(''), [paste, setPaste] = useState(false), [preview, setPreview] = useState<PluginPreview>(), [source, setSource] = useState('');
+  const [dragOver, setDragOver] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const check = async (raw: string) => { try { setPreview(await bridge()!.preview(raw)); setSource(raw); } catch (e) { setPreview(undefined); notify((e as Error).message, true); } };
-  const readFile = (f?: File) => { if (!f) return; if (f.size > 2_000_000) return notify('插件文件太大（最多 2MB）', true); const reader = new FileReader(); reader.onload = () => void check(String(reader.result ?? '')); reader.onerror = () => notify('读不了这个文件', true); reader.readAsText(f, 'utf-8'); };
+  const readFile = (f?: File) => {
+    if (!f) return;
+    if (f.size > 5_000_000) return notify('插件文件太大（最多 5MB）', true);
+    const reader = new FileReader();
+    reader.onload = () => void check(String(reader.result ?? ''));
+    reader.onerror = () => notify('读不了这个文件', true);
+    reader.readAsText(f, 'utf-8');
+  };
   return <section className="panel pl-panel" aria-label="装插件">
-    <h3><FileUp size={16} />装插件</h3>
-    <p className="muted">插件是一个 kadadesk-plugin.json 文件。可以选文件，也可以把内容粘贴进来。</p>
+    <h3><FileUp size={16} />装插件 / 导入扩展包</h3>
+    <p className="muted">支持导入本地插件包（.plugin 或 .json 文件）。可以直接拖拽文件到下方区域，也可以粘贴内容。</p>
+    <div
+      className={`pl-dropzone${dragOver ? ' is-active' : ''}`}
+      onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={e => {
+        e.preventDefault();
+        setDragOver(false);
+        readFile(e.dataTransfer.files?.[0]);
+      }}
+      onClick={() => file.current?.click()}
+    >
+      <FileUp size={24} className="pl-dropzone-icon" />
+      <p><strong>点击或拖拽插件扩展包（.plugin / .json）到这里导入</strong></p>
+      <small className="muted">支持外部通信渠道插件、专属话术包、工具与工作流扩展</small>
+    </div>
     <div className="pl-actions">
       <Button variant="secondary" disabled={busy} onClick={() => file.current?.click()}><FileUp size={15} />选择插件文件</Button>
       <Button variant="secondary" disabled={busy} onClick={() => setPaste(v => !v)}><ClipboardPaste size={15} />粘贴插件内容</Button>
       <Button variant="ghost" disabled={busy} onClick={() => void act(() => bridge()!.createAutomation('我的自动化'), '已新建，改好规则后点「保存规则」')}><Plus size={15} />新建一个自动化</Button>
-      <input ref={file} type="file" accept=".json,application/json" aria-label="选择插件文件" style={{ display: 'none' }} onChange={e => { readFile(e.target.files?.[0]); e.target.value = ''; }} />
+      <input ref={file} type="file" accept=".plugin,.json,application/json" aria-label="选择插件文件" style={{ display: 'none' }} onChange={e => { readFile(e.target.files?.[0]); e.target.value = ''; }} />
     </div>
     {paste && <div className="pl-paste"><textarea rows={6} value={text} maxLength={2_000_000} placeholder='{"id": "my-plugin", "name": "…", "kind": "content", …}' aria-label="插件内容" onChange={e => setText(e.target.value)} /><Button disabled={busy || !text.trim()} onClick={() => void check(text)}>检查插件</Button></div>}
     {preview && <div className="pl-consent" role="dialog" aria-label="确认安装">

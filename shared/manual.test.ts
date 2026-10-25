@@ -97,7 +97,7 @@ test('version sync: the 更新记录 has an entry for package.json\'s version, n
   assert.equal(manualVersions()[0], pkgVersion);
   const { problems } = checkManual(root);
   assert.deepEqual(problems, [], problems.join('\n'));
-  assert.equal(readFileSync(join(root, 'shared/manual-content.ts'), 'utf8'), renderManualModule(readManualSources(root)), 'run npm run manual');
+  assert.equal(readFileSync(join(root, 'shared/manual-content.ts'), 'utf8').replace(/\r\n/g, '\n'), renderManualModule(readManualSources(root)).replace(/\r\n/g, '\n'), 'run npm run manual');
   const changelog = readFileSync(join(root, 'docs/manual/99-changelog.md'), 'utf8');
   assert.match(changelogEntry(changelog, pkgVersion), /^- \S/m);
 });

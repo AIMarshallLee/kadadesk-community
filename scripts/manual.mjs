@@ -58,8 +58,8 @@ export function checkManual(root = process.cwd()) {
     }
   }
   const modulePath = join(root, MANUAL_MODULE);
-  const expected = renderManualModule(readManualSources(root));
-  if (!existsSync(modulePath) || readFileSync(modulePath, 'utf8') !== expected) problems.push(`${MANUAL_MODULE} 和 ${MANUAL_DIR} 不一致：运行 npm run manual`);
+  const expected = renderManualModule(readManualSources(root)).replace(/\r\n/g, '\n');
+  if (!existsSync(modulePath) || readFileSync(modulePath, 'utf8').replace(/\r\n/g, '\n') !== expected) problems.push(`${MANUAL_MODULE} 和 ${MANUAL_DIR} 不一致：运行 npm run manual`);
   return { version, problems };
 }
 
