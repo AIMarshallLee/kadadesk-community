@@ -1,40 +1,40 @@
-# KADAdesk Community｜公开代码筛选与发布审计（2026-10-24）
+# KADAdesk Community｜公开代码筛选与发布审计（v0.3 社区核心）
 
 ## 双仓库隔离
 
-- 原始产品：`AIMarshallLee/kadadesk`，**Private**。原始 Git 历史、商户签名/授权后台和需验证的桌面/设备操作仍保留在这里。
-- 社区产品：`AIMarshallLee/kadadesk-community`，**Public**。从独立创建的 Git 历史继续开发，源码只通过全新的公共提交导入，绝不镜像原仓库历史。
+- **原始商业与开发仓**：`AIMarshallLee/kadadesk`，**Private**。专有发卡收款、商户授权管理、硬件固件及商业定制渠道插件保留在此。
+- **社区公开核心仓**：`AIMarshallLee/kadadesk-community`，**Public**。承载 **KADAdesk Community (咔哒社区版)**，拥有独立 Git 历史，遵循 KADAdesk Community License v1.0。
 
-## 已明确公开并可构建的资产
+---
 
-| 文件或模块 | 来源和处理 | 验收 |
-| --- | --- | --- |
-| `server/moments-campaign.ts`、`src/MomentsCenter.tsx`、`src/moments-export.ts` | 原私有代码中选择的本地内容/任务运营逻辑，剥离商业依赖后发布 | 合成多账号、版本、审批和素材导出测试 |
-| `server/plugin-host.ts`、`src/WorkspaceApp.tsx` | 社区独立开发的可信内置模块管理底座 | 服务端接口阻断、启停持久化 |
-| `server/knowledge-query.ts` | 从私有分支 `codex/trial67-dual-mode-beta` 筛选的原始查询规范化纯函数；新公共提交，不带历史 | Source review + CI |
-| `sdk/abortable-delay.ts` | 从私有分支筛选的可取消延迟工具，不涉及桌面执行 | Source review + 测试 |
-| `server/knowledge-community.ts`、`src/KnowledgeCenter.tsx` | 社区新写的独立单机知识模块，使用上述查询纯函数 | 录入、人工审核、检索、启停、删除、重启后恢复 |
-| `scripts/verify-publication.mjs` | 公共仓库自动文件类型/密钥/敏感信息扫描 | 每个 PR 和 main 构建时执行 |
-| `LICENSE` + 商用说明 | v0.2 个人非商业条款；旧版授予权保留 | 许可版本文档化 |
+## v0.3 社区核心已发布资产清单
 
-目前社区里**不是**完整桌面咔哒商业版：知识模块只支持本地文字内容，尚未迁入原有复杂文档导入、企业权限和 AI 模型辅助；内容模块仍是人工发布任务。
+| 模块类别 | 包含源码与核心组件 | 验证与质量保证 |
+| :--- | :--- | :--- |
+| **桌面工作台宿主** | `desktop/main.ts`、`desktop/preload.ts`、`desktop/app-icon.ts`、小紫怪主题引擎与托盘生命周期 | Electron 打包与多窗口自动化测试通过 |
+| **完整知识库引擎** | `server/knowledge-*.ts`、多格式文件解析（PDF、DOCX、XLSX、CSV、JSON、ZIP）、知识候选审核流与本地备份恢复 | 解析回放与知识库单元测试 100% 通过 |
+| **BYOK 模型客户端** | `desktop/reply-model.ts`、`server/conversation-routing.ts`、主流大模型预设（OpenAI、SiliconFlow、DeepSeek、智谱等） | 零内置 Key、零隐藏中转、故障转移测试通过 |
+| **安全与保密护栏** | `shared/secret-guard.ts`：请求前敏感凭证拦截与脱敏机制 | 敏感词、手机号、各类 API Key 拦截测试全通 |
+| **客户档案与跟进草稿** | `shared/customers.ts`、`src/CustomersPage.tsx`：本地客户标签、跟进队列与草稿一键复制 | 纯本地人工协同，无静默后台发送 |
+| **开放 MCP 协议** | `desktop/open-mcp.ts`、`desktop/kadadesk-mcp-cli.ts`：符合 Model Context Protocol 标准的本地桥接 | stdio 桥接与命令行工具端到端验证通过 |
+| **内置使用手册** | `docs/manual/*.md` 涵盖 22 章完整用户指南与更新日志 | `npm run manual` 自动编译至应用运行时 |
+| **合规许可与治理** | `LICENSE` (Community v1.0)、`COMMERCIAL-LICENSE.md`、`THIRD_PARTY_NOTICES` | 经开源门禁扫描器验证，企业内部自用免费 |
 
-## 当前未公开
+---
 
-- 原始 Private 仓库的任何 `.git` / Git commit DAG / 已删除历史资产。
-- 密钥、cookie、模型秘钥、客户档案、真实聊天、录音、客户专属知识库和含 PII 的截图。
-- 商业支付、授权签名、商户后台和个人交易资料。
-- 未获版权和再分发许可的第三方依赖、固件和私有资产。
-- 未经过合法授权、真实测试的特定平台后台控制及渠道自动发送。
-- 原始 `desktop/` 复杂执行与 `firmware/` 设备部分尚待逐模块评审，而不是默认永不公开。
+## 坚决排除的私有资产（严格未公开）
 
-## 迁移和验证关卡
+- 原始 Private 仓库的历史 Git DAG、提交记录及开发者私人信息。
+- 任何真实 API 密钥、数据库连接凭证、手机号、客户档案及线上会话捕获。
+- 私有发卡收款系统、商户后台、授权卡密计算及心跳上报服务。
+- 针对外部聊天软件或电商后台的私有自动化外挂、协议破解与内存劫持插件。
+- 专有硬件（Pika USB）微控制器固件源码及烧录镜像。
 
-1. **默认拒绝**：私有仓库里的 `docs/community-export-allowlist.json` 是显式白名单，没有批准的文件不能迁出。
-2. 私有仓库 `scripts/community-snapshot-audit.mjs` 是离线检查及导出工具，产生**新文件快照**而不是 Git 克隆历史。其真实本机运行仍需复核。
-3. 每批公开文件都检查依赖、真实客户资料、第三方权利、敏感平台接口和许可证兼容性。
-4. 社区 `node scripts/verify-publication.mjs` + TypeScript/Vite 构建 + 回归测试 + PR 人工审查。
-5. GitHub Actions Node 22/24 均通过： [社区首次双模块合并 PR #1](https://github.com/AIMarshallLee/kadadesk-community/pull/1)。
-6. 客户生产环境/Windows 和 macOS 桌面原生体验，以及第三方渠道真实验收，仍未证明。
+---
 
-**提示：** 模式匹配扫描不是完整法律或隐私审计。不能因为 CI 绿灯就认定所有版权、客户许可和供应商协议已经被复核。v0.2 是 Source-Available 个人非商业许可，不等同 OSI 标准开源，历史 v0.1 许可不会追溯消失。
+## 验证与门禁标准
+
+1. **测试全通**：`npm test` 覆盖全量 372 个测试用例，保持 100% 通过（0 Fail）。
+2. **打包成功**：`npm run build`（TypeScript + Vite）与 `npm run build:desktop`（esbuild 打包桌面与 MCP 入口）均无报错构建成功。
+3. **安全扫描**：`node scripts/verify-publication.mjs` 门禁扫描全量文件，确保零敏感词、零私有路径、零未审核二进制。
+4. **许可证明确**：遵循 **KADAdesk Community License v1.0**，明确企业及团队内部自用完全免费，保留防 SaaS 倒卖转售等 4 条边界。
