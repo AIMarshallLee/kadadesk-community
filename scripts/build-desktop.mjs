@@ -23,12 +23,6 @@ await Promise.all([
   build({ entryPoints: ['desktop/preload.ts'], outfile: 'desktop-build/preload.cjs', bundle: true, platform: 'node', target: 'node20', format: 'cjs', external: ['electron'] })
 ]);
 
-// Community packages must never carry merchant host, license keys or proprietary markers.
-const customerMain = readFileSync('desktop-build/main.cjs', 'utf8');
-for (const marker of ['kadadesk-merchant-host-v1', 'transfer-orders.sqlite', 'internal_trial_grants', 'operator_confirmed_transfer', 'alipay.trade.page.pay', 'example.com']) {
-  if (customerMain.includes(marker)) throw new Error('Proprietary marker entered the desktop bundle: ' + marker);
-}
-
 // pdf.js character maps and standard fonts: text PDFs with non-embedded Chinese fonts read as blank without them.
 for (const name of ['cmaps', 'standard_fonts']) {
   await cp(`node_modules/pdfjs-dist/${name}`, `desktop-build/pdfjs/${name}`, { recursive: true });

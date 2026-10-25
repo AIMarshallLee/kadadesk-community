@@ -5,6 +5,9 @@
   "description": "咔哒 KADAdesk 社区版 · 企业私域的开放 AI 工作台",
   "type": "module",
   "main": "desktop-build/main.cjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "dev:web": "vite --host 127.0.0.1",

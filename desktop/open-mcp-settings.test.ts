@@ -192,7 +192,7 @@ test('模型：apiKey 只写入不返回；换模型要确认；回复模型换�
   assert.equal(h.requests.some(r => r.path === '/settings'), false);
   assert.equal((await h.call(h.cursor, 'models_set', { text: { baseUrl: 'https://other.example/v1', model: 'm2', apiKey: 'sk-NEW-TEXT-666' } })).isError, false);
   assert.deepEqual(h.requests.find(r => r.path === '/settings')?.body, { provider: { baseUrl: 'https://other.example/v1', model: 'm2', temperature: 0.3, apiKey: 'sk-NEW-TEXT-666' } });
-  assert.match((await h.call(h.cursor, 'models_set', { vision: { provider: 'kadadesk-builtin', model: 'x' } })).text, /内置模型版/);
+  assert.match((await h.call(h.cursor, 'models_set', { vision: { provider: 'unknown-vendor', model: 'x' } })).text, /provider 无效/);
   assert.match((await h.call(h.cursor, 'models_set', { backup: { provider: 'nope', model: 'x' } })).text, /provider 无效/);
   const tested = await h.call(h.cursor, 'models_test', { target: 'main' }); assert.equal(JSON.parse(tested.text).durationMs, 900); noSecrets('models_test', tested.text);
   noSecrets('models_test text', (await h.call(h.cursor, 'models_test', { target: 'text' })).text);

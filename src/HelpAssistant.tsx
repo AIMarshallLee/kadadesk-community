@@ -72,7 +72,7 @@ export async function goToFeature(entry: FeatureEntry, onOpen: (open: FeatureOpe
   return false;
 }
 
-const POPULAR = ['settings.backup-model', 'reception.takeover', 'reception.review-mode', 'setup.mac-permissions', 'license', 'help.diagnostics'];
+const POPULAR = ['settings.backup-model', 'settings.theme', 'settings.model', 'help.manual', 'help.diagnostics', 'knowledge.repos'];
 const isMac = () => /macintosh|mac os x/i.test(navigator.userAgent);
 export const searchShortcut = () => isMac() ? '⌘K' : 'Ctrl K';
 
@@ -102,7 +102,7 @@ export function FeatureSearch({ tasks, onClose, onOpen, onAsk, onMissed }: { tas
   };
   const firstTask = rows.findIndex(r => r.kind === 'task'), firstManual = rows.findIndex(r => r.kind === 'manual');
   const rowKey = (row: Row) => row.kind === 'task' ? row.task.id : row.kind === 'manual' ? `manual:${row.hit.chapterId}/${row.hit.sectionId}` : row.entry.id;
-  return <Modal title="搜索功能" subtitle="写你想做的事，比如「换颜色」「被限流了」「这个人我自己回」" onClose={onClose}>
+  return <Modal title="搜索功能" subtitle="写你想做的事，比如「换颜色」「被限流了」「导入资料」" onClose={onClose}>
     <div className="search-box"><Search size={18} /><input autoFocus aria-label="搜索功能和任务" placeholder="搜索功能、设置或任务…" maxLength={100} value={query} onChange={e => setQuery(e.target.value)} onKeyDown={keys} /></div>
     <div className="search-results feature-results" role="listbox" aria-label="搜索结果">
       {!q && <p className="feature-results-head">常用</p>}
@@ -122,7 +122,7 @@ export function FeatureSearch({ tasks, onClose, onOpen, onAsk, onMissed }: { tas
 }
 
 type Turn = { role: 'user' | 'assistant'; text: string; actions?: string[]; manual?: { route: string; title: string }; error?: boolean };
-const EXAMPLES = ['模型被限流了怎么办', '某个客户我想自己回', '系统问能不能录屏，点什么', '试用次数在哪看'];
+const EXAMPLES = ['模型被限流了怎么办', '怎么从私有仓库同步知识', '客户档案怎么分类', '怎么配置备用模型'];
 const MAX_QUESTION = 300;
 /** Only a route that names a real manual chapter becomes a link. */
 function manualLink(value?: { route?: unknown; title?: unknown }): Turn['manual'] {
@@ -133,8 +133,6 @@ function manualLink(value?: { route?: unknown; title?: unknown }): Turn['manual'
 async function helpContext() {
   const bridge = window.flowdesk;
   const context: Record<string, unknown> = { platform: bridge ? (isMac() ? 'mac' : 'windows') : 'browser', page: window.location.hash.slice(1) };
-  const [reply] = await Promise.allSettled([bridge?.desktopReplies?.state()]);
-  if (reply.status === 'fulfilled' && reply.value) context.reception = (reply.value as { status?: string }).status;
   return context;
 }
 

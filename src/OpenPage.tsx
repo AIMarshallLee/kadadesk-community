@@ -11,15 +11,15 @@ import './open-page.css';
 const TOOLS: Array<[string, string]> = [
   ['knowledge_search', '按客户问题检索已审核知识（只读）'],
   ['knowledge_answer', '用咔哒的知识和话术生成一条回复草稿（扣额度，不发送；每小时最多 30 次）'],
-  ['reception_status', '自动接待状态与今日统计（只读；默认不含客户原文）'],
-  ['reception_control', '暂停 / 解除暂停 / 查看接待；开始和停止接待只给有「可以修改设置」的客户端（开始需你确认；不能指定发送对象或内容）'],
+  ['reception_status', '工作台状态与统计（只读）'],
+  ['reception_control', '查看工作台运行状态（只读）'],
   ['knowledge_add', '新增一条待审核知识（审核后才启用）'],
   ['settings_get', '读取全部设置、话术和模型（只读；密钥只显示是否已保存）'],
   ['models_get', '读取模型设置（只读；密钥只显示是否已保存）'],
   ['knowledge_list', '分页列出知识和审核状态（只读）'],
-  ['settings_update', '修改接待配置、人设语气、审核方式、话术（需「可以修改设置」）'],
-  ['models_set', '修改画面识别、回复、备用模型和密钥（需「可以修改设置」，密钥只写入）'],
-  ['models_test', '测试模型、重新检测自动挑选模型（需「可以修改设置」）'],
+  ['settings_update', '修改工作台配置、人设语气、话术（需「可以修改设置」）'],
+  ['models_set', '修改模型配置和密钥（需「可以修改设置」，密钥只写入）'],
+  ['models_test', '测试模型连接（需「可以修改设置」）'],
   ['knowledge_review', '审核通过或驳回待审核知识（需「可以修改设置」，通过需你确认）'],
   ['knowledge_update', '修改知识，内容变化后回到待审核（需「可以修改设置」）'],
   ['knowledge_delete', '删除知识（需「可以修改设置」，需你确认）'],
@@ -49,8 +49,8 @@ export default function OpenPage({ notify }: { notify: (message: string, error?:
   const scope = (id: string, change: { configWrite?: boolean; skipConfirm?: boolean }, done: string) => void (async () => {
     // Giving an AI tool more power is asked once more, in plain words; taking it back never is.
     const label = state?.clients?.find(c => c.id === id)?.label ?? '这个工具';
-    if (change.configWrite && !await ask({ title: `允许「${label}」修改设置？`, lines: ['它能改接待设置、话术、模型和知识，也能开始或停止接待', '每次修改都要你在咔哒里点确认，改过的都记在下面', '随时可以取消勾选收回'], confirmLabel: '允许修改' })) return;
-    if (change.skipConfirm && !await ask({ title: `「${label}」改设置不再问你？`, lines: ['它改接待设置、开始接待时，咔哒不再弹窗问你', '只给你自己在用、信得过的工具打开', '改过的仍记在下面的修改记录里'], confirmLabel: '不再逐次确认', danger: true })) return;
+    if (change.configWrite && !await ask({ title: `允许「${label}」修改设置？`, lines: ['它能改工作台设置、话术、模型和知识', '每次修改都要你在咔哒里点确认，改过的都记在下面', '随时可以取消勾选收回'], confirmLabel: '允许修改' })) return;
+    if (change.skipConfirm && !await ask({ title: `「${label}」改设置不再问你？`, lines: ['它改工作台设置时，咔哒不再弹窗问你', '只给你自己在用、信得过的工具打开', '改过的仍记在下面的修改记录里'], confirmLabel: '不再逐次确认', danger: true })) return;
     await save({ clientScope: { id, ...change } }, done);
   })();
   const copy = (text: string, what: string) => void navigator.clipboard.writeText(text).then(() => notify(`${what}已复制`)).catch(() => notify('复制失败', true));
@@ -64,7 +64,7 @@ export default function OpenPage({ notify }: { notify: (message: string, error?:
   const selectClient = (id: string) => { setClientPick(id); const tool = snippets.find(x => id === x.id || id.startsWith(`${x.id}-`)); if (tool) setPick(tool.id); };
   const labels = Object.fromEntries((state?.clients ?? []).map(client => [client.id, client.label]));
   return <>
-    <PageHead title="开放" description="把咔哒的知识库和自动接待开放给其他 AI 工具（Claude、Codex、Cursor、Antigravity、WorkBuddy 等）调用。标准 MCP 协议，只监听本机，不对外网。" />
+    <PageHead title="开放" description="把咔哒的知识库开放给其他 AI 工具（Claude、Codex、Cursor、Antigravity、WorkBuddy 等）调用。标准 MCP 协议，只监听本机，不对外网。" />
     <Tutorial id="open-mcp" />{confirmDialog}
     <section className="panel dr-panel">
       <div className="dr-section-head"><div><h2>MCP 服务</h2><p>{state ? (state.listening ? `运行中 · ${url} · 已调用 ${state.calls} 次${state.lastCallAt ? ' · 最近 ' + new Date(state.lastCallAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : ''}` : state.enabled ? `未能启动${state.error ? '：' + state.error : ''}` : '已关闭') : '读取中…'}</p></div></div>

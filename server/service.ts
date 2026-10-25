@@ -37,7 +37,7 @@ import { expandKnowledgeImport } from './knowledge-expand';
 
 const getMachineId = () => 'community-machine-id';
 const license = {
-  getStatus: () => ({ kind: 'community', valid: true, quota: Infinity, machineId: 'community-machine-id', licensed: true, trialRemaining: 999, trialUsed: 0 }),
+  getStatus: () => ({ kind: 'community', valid: true, quota: Infinity, machineId: 'community-machine-id', licensed: true }),
   exportKey: () => '',
   activate: async (_k: string) => ({ ok: true, status: { kind: 'community', valid: true } }),
   reserveQuota: () => ({ commit: () => {}, rollback: () => {} }),
@@ -45,18 +45,12 @@ const license = {
 };
 
 
-const TRIAL_BASE_URL = '';
-const TRIAL_TEXT_MODEL = '';
-const TRIAL_REPLY_LIMIT = 0;
-const trialKey = (_id: string) => '';
-
 import { MODEL_ADVICE, classifyModelFailure, modelFailureText, readErrorBody } from '../shared/model-errors';
 /** A failed model response as an ApiError carrying the provider's (or the trial relay's) own reason and the next step. */
 async function modelHttpError(prefix: string, response: Response, baseUrl: string, done = ''): Promise<ApiError> {
   const failure = classifyModelFailure(response.status, await readErrorBody(response), baseUrl);
   return new ApiError(502, `${prefix}（HTTP ${response.status}）：${modelFailureText(failure)}${done}${failure.retryable ? '请稍后重试。' : ''}`);
 }
-let trialHealth: { at: number; available: boolean; reachable?: boolean } | undefined;
 
 const commerce = { status: () => ({ enabled: false }), create: async (_p: any, _m: any) => ({}), checkoutUrl: () => '', close: async () => {} };
 
@@ -164,7 +158,7 @@ export async function createService({ dataDir, secrets, connectorSecrets, driveS
   await mkdir(dataDir, { recursive: true });
   // Community edition: no external ledger, trial relay or commerce clients
   const license = {
-    getStatus: () => ({ kind: 'community', valid: true, quota: Infinity, machineId: 'community-machine-id', licensed: true, trialRemaining: 999, trialUsed: 0 }),
+    getStatus: () => ({ kind: 'community', valid: true, quota: Infinity, machineId: 'community-machine-id', licensed: true }),
     exportKey: () => '',
     activate: async (_k: string) => ({ ok: true, status: { kind: 'community', valid: true } }),
     reserveQuota: () => ({ commit: () => {}, rollback: () => {}, cancel: () => {} }),
@@ -278,8 +272,8 @@ export async function createService({ dataDir, secrets, connectorSecrets, driveS
   // 自动更新的知识来源 (server/knowledge-repos.ts): GitHub repositories and folders, checked for changes when kadadesk is idle.
   const knowledgeRepos = await createKnowledgeRepos({ dataDir, getState: () => state, mutate, git: git ?? createGitClient(), fetchImpl,
     parse: input => parseKnowledgeImportIsolated(input, { workerPath: knowledgeWorkerPath }),
-    organize: async rows => { const provider = await live(); if (provider.trial) throw new ApiError(400, '免费试用模型不用来整理资料。'); await beforeLiveModel?.(); return organizeKnowledge(rows, provider, fetchImpl); },
-    modelMode: async () => { const provider = await live(); if (provider.trial) return 'trial'; return provider.apiKey || ['localhost', '127.0.0.1', '::1'].includes(providerUrl(provider.baseUrl).hostname) ? 'own' : 'none'; },
+    organize: async rows => { const provider = await live(); await beforeLiveModel?.(); return organizeKnowledge(rows, provider, fetchImpl); },
+    modelMode: async () => { const provider = await live(); return provider.apiKey || ['localhost', '127.0.0.1', '::1'].includes(providerUrl(provider.baseUrl).hostname) ? 'own' : 'none'; },
     autoEnable: ids => autoEnable(ids), notify: knowledgeRepoNotify });
   const relatedKnowledge = (input: string, scenario: Scenario|'all', market = customerMarket(undefined)) => {
     // 写法参考 and 内部资料 are never facts for a customer.
@@ -686,20 +680,12 @@ export async function createService({ dataDir, secrets, connectorSecrets, driveS
       }
     }
     // 问咔哒怎么用 (server/help-assistant.ts): answers from the handbook only; no license quota, never changes settings.
-    if (method === 'POST' && path === '/help/ask') { const help = await import('./help-assistant'); const lp = await live(); return help.askHelp(body, { model: help.chatCompletionHelpModel(lp, fetchImpl), facts: help.helpFacts(state, lp, license.getStatus()) }); }
+    if (method === 'POST' && path === '/help/ask') { const help = await import('./help-assistant'); const lp = await live(); return help.askHelp(body, { model: help.chatCompletionHelpModel(lp, fetchImpl), facts: help.helpFacts(state, lp) }); }
     // GET: cached; POST: re-check now (the setup page's 「刷新」).
     if ((method === 'GET' || method === 'POST') && path === '/model/live') {
       const lp = await live();
-      if (!lp.trial) return { trial: false, available: true, model: lp.model };
-      // Cache the trial relay's health so the setup page does not ping it on every render: 5 minutes when it answered
-      // "available", 30 seconds otherwise (a fresh deploy or a network blip should show up quickly).
-      if (method === 'POST' || !trialHealth || Date.now() - trialHealth.at > (trialHealth.available ? 300000 : 30000)) {
-        let available = false, reachable = false;
-        try { const r = await fetchImpl(TRIAL_BASE_URL + '/health', { redirect: 'error', signal: AbortSignal.timeout(4000) }); reachable = r.ok; available = r.ok && (await r.json() as { available?: boolean })?.available === true; } catch { available = false; }
-        trialHealth = { at: Date.now(), available, reachable };
-      }
-      const message = trialHealth.available ? undefined : trialHealth.reachable ? MODEL_ADVICE['trial-unavailable'] : '连不上咔哒免费试用通道（可能是网络问题）：点「刷新」再查一次；急用的话在「设置」一键配置自己的模型（几分钟就好）。';
-      return { trial: true, available: trialHealth.available, model: 'kada-trial', limit: TRIAL_REPLY_LIMIT, ...(message ? { message } : {}) };
+      const hasKey = Boolean(await key());
+      return { available: hasKey, model: lp.model || '' };
     }
     if (method === 'GET' && path === '/state') { state.provider.hasKey = Boolean(await key()); return structuredClone(state); }
     if (method === 'GET' && path === '/export') { const exported = structuredClone(state); exported.provider.hasKey = false; return exported; }
@@ -799,8 +785,6 @@ export async function createService({ dataDir, secrets, connectorSecrets, driveS
     knowledgeRepos: { addFolder: (path: string) => knowledgeRepos.addFolder(path), autoTick: knowledgeRepos.autoTick, whenIdle: knowledgeRepos.whenIdle },
     startDriveAuthorization: (kind:unknown)=>cloudDrives.start(driveKind(kind)),
     desktopModelCredentials: async () => { const lp = await live(); return { baseUrl: lp.baseUrl, model: lp.model, apiKey: lp.apiKey }; },
-    /** 免填密钥试用: true while replies go through kadadesk's trial relay because no own key is saved. */
-    usingTrialModel: async () => (await live()).trial,
     close: async () => { await knowledgeRepos.close(); license.close(); builtin.close(); await commerce.close();await cloudDrives.close();await autopilot.close(); } };
 }
 export { ApiError };

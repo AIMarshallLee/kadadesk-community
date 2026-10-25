@@ -17,8 +17,7 @@ export function openHelpAssistant(question?: string) {
 }
 /** Windows without a route: the licence window is the topbar crown, the assistant is the floating button. */
 function openWindow(open: FeatureOpen) {
-  if (open === 'license') document.querySelector<HTMLElement>('.app-topbar .topbar-license')?.click();
-  else if (open === 'assistant') openHelpAssistant();
+  if (open === 'assistant') openHelpAssistant();
 }
 
 const box: React.CSSProperties = { margin: '10px 0', border: '1px solid hsl(var(--a-h) calc(var(--a-s) * 33%) 88%)', background: 'hsl(var(--a-h) calc(var(--a-s) * 56%) 98.5%)', borderRadius: 10, padding: '8px 12px', fontSize: 12.5, lineHeight: 1.7 };

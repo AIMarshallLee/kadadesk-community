@@ -234,7 +234,7 @@ export async function createPluginManager(deps: PluginManagerDeps) {
     if (c.knowledge) await batch(c.knowledge, ['知识包'], '知识');
     if (c.scripts) await batch(c.scripts, ['话术'], '话术');
     if (c.style) {
-      const w = await deps.request({ method: 'POST', path: '/workflows', body: { name: `【插件】${c.style.name}`.slice(0, 200), scenario: 'service', description: `来自插件「${m.name}」的回复风格。启用后在接待设置里选用才会生效。`.slice(0, 500), instructions: c.style.instructions, greeting: c.style.greeting ?? '', enabled: false } }) as Workflow;
+      const w = await deps.request({ method: 'POST', path: '/workflows', body: { name: `【插件】${c.style.name}`.slice(0, 200), scenario: 'service', description: `来自插件「${m.name}」的回复风格。可在工作台配置选用。`.slice(0, 500), instructions: c.style.instructions, greeting: c.style.greeting ?? '', enabled: false } }) as Workflow;
       if (w?.id) created.workflowIds.push(w.id);
     }
   };

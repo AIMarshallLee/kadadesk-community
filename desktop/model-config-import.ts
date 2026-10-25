@@ -80,7 +80,6 @@ export const describeConfig = (c: ParsedModelConfig) => ({ provider: c.provider.
 
 /** 导出配置（不含密钥）: the active screen-reading profile plus the reply model, in the import format. */
 export function exportModelConfig(vision: VisionSettings, text: { baseUrl: string; model: string; hasKey: boolean }): ModelConfigFile {
-  if (vision.activeId === 'kadadesk-builtin') throw new Error('内置模型不用导出配置：在另一台电脑上同样点「一键开通」就行。');
   const active = vision.profiles.find((p: any) => p.id === vision.activeId);
   const native = vision.activeId === 'gemini';
   const vp = native ? findProvider('gemini')! : providerForVisionId(vision.activeId) ?? findProvider('custom')!;

@@ -18,7 +18,7 @@ test('provider catalogue: unique ids and aliases, valid OpenAI-compatible URLs, 
     assert.equal(p.needsKey, p.kind !== 'local', p.id);
   }
   assert.equal(findProvider('deepseek')!.visionCapable, false);
-  for (const id of ['zhipu-cn', 'qwen-cn', 'doubao-cn', 'deepseek', 'kimi-cn', 'minimax-cn', 'hunyuan-cn', 'qianfan-cn', 'siliconflow-cn', 'openrouter', 'gemini', 'openai', 'anthropic', 'xai', 'groq', 'together', 'ollama-local', 'lmstudio-local', 'antigravity-local', 'relay-other', 'custom']) {
+  for (const id of ['zhipu-cn', 'qwen-cn', 'doubao-cn', 'deepseek', 'kimi-cn', 'minimax-cn', 'hunyuan-cn', 'qianfan-cn', 'siliconflow-cn', 'openrouter', 'gemini', 'openai', 'anthropic', 'xai', 'groq', 'together', 'ollama-local', 'lmstudio-local', 'relay-other', 'custom']) {
     assert.ok(findProvider(id), id);
   }
   for (const p of modelProviders) {
@@ -27,7 +27,6 @@ test('provider catalogue: unique ids and aliases, valid OpenAI-compatible URLs, 
 });
 
 test('legacy ids still resolve', () => {
-  assert.equal(findProvider('antigravity')!.id, 'antigravity-local');
   assert.equal(findProvider('custom-global')!.id, 'relay-other');
   assert.equal(providerForBaseUrl('https://dashscope.aliyuncs.com/compatible-mode/v1')!.id, 'qwen-cn');
   assert.equal(providerForBaseUrl('https://unknown.example/v1'), undefined);

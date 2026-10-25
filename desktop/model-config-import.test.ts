@@ -13,7 +13,7 @@ test('config import accepts the new format, the older preset format, pasted text
   assert.equal(parseModelConfig('kadadesk-model:' + Buffer.from(JSON.stringify(file)).toString('base64url')).provider.id, 'qwen-cn');
   const legacy = parseModelConfig(JSON.stringify({ kadadeskPreset: 1, name: '店里的模型', baseUrl: 'https://aihub-admin.aimix.pro/api-platform/v1', model: 'gemini-3.5-flash', apiKey: SECRET }));
   assert.equal(legacy.provider.id, 'pixmind'); assert.equal(legacy.visionModel, 'gemini-3.5-flash'); assert.equal(legacy.name, '店里的模型');
-  assert.equal(parseModelConfig(JSON.stringify({ kadadeskPreset: 1, baseUrl: 'http://127.0.0.1:8045/v1', model: 'm' })).provider.id, 'antigravity-local');
+  assert.equal(parseModelConfig(JSON.stringify({ kadadeskPreset: 1, baseUrl: 'http://127.0.0.1:11434/v1', model: 'm' })).provider.id, 'ollama-local');
   assert.equal(parseModelConfig(JSON.stringify({ ...file, provider: 'deepseek', baseUrl: 'https://api.deepseek.com/v1' })).visionModel, '', 'text-only provider never gets a vision model');
   assert.equal(parseModelConfig(JSON.stringify({ ...file, provider: 'not-known', baseUrl: 'https://relay.example/v1' })).provider.id, 'custom');
 });

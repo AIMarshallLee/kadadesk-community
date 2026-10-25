@@ -86,9 +86,6 @@ export default function QuickImport({ state, perform, notify, onDone }: PageProp
   const stopRef = useRef(false); const folderRef = useRef<HTMLInputElement>(null);
   const auto = state.preferences.autoEnableKnowledge !== false;
   const health = knowledgeHealth(state.knowledge);
-  // The free trial model organizes too; only warn when we know there is neither an own key nor the trial.
-  const [trialModel, setTrialModel] = useState<boolean>();
-  useEffect(() => { if (state.provider.hasKey) return; let active = true; void api<{ trial: boolean; available: boolean }>('GET', '/model/live').then(v => { if (active) setTrialModel(v.trial && v.available); }).catch(() => {}); return () => { active = false; }; }, [state.provider.hasKey]);
 
   const basket = plan(picked);
   const allLinks = [...new Set(links.split(/\r?\n/).map(l => l.trim()).filter(Boolean))];
@@ -137,9 +134,8 @@ export default function QuickImport({ state, perform, notify, onDone }: PageProp
         await expand(`链接 ${url}`, { url });
       }
 
-      const live = state.provider.hasKey ? undefined : await api<{ trial: boolean; available: boolean }>('GET', '/model/live').catch(() => undefined);
-      let organizeOn = state.provider.hasKey || !!(live?.trial && live.available), organized = 0;
-      if (!organizeOn) notes.push('还没接好回复模型：资料按原文导入，没有改写成客户问答。到「设置」一键配置后再导，效果更好。');
+      let organizeOn = Boolean(state.provider.hasKey), organized = 0;
+      if (!organizeOn) notes.push('还没配置回复模型：资料按原文导入，没有改写成问答。可到「设置」配置模型。');
       const total = jobs.length + (text.trim() ? 1 : 0); let done = 0;
 
       /** Preview → organize (capped per run) → commit. A preview failure is the caller's to handle; a commit failure stops the run. */
@@ -280,7 +276,7 @@ export default function QuickImport({ state, perform, notify, onDone }: PageProp
         <textarea className="qi-text" aria-label="快速导入正文" rows={/【[^】]*】/.test(text) ? 16 : 4} placeholder="把资料内容粘贴到这里…" value={text} onChange={e => setText(e.target.value)} disabled={busy} />
       </details>
       <div className="qi-actions"><Button busy={busy} disabled={reading} onClick={() => void run()}>开始整理</Button><span className="muted">{auto ? '咔哒会自己拆成客户问答、分好类，整理完就能用。' : '整理完你点确认后才会用来回复客户。'}不对客户说的内容会归到「内部资料」，不会启用。</span></div>
-      {!state.provider.hasKey && trialModel === false && <p className="dr-warning" style={{ marginTop: 10 }}>还没接好回复模型：会按原文导入，不会自动改写成问答。到「设置」一键配置后再导，效果更好。</p>}
+      {!state.provider.hasKey && <p className="dr-warning" style={{ marginTop: 10 }}>还没配置回复模型：会按原文导入，不会自动改写成问答。可到「设置」配置模型。</p>}
       <div className="intake-or">没有现成资料？选个行业样板，把【】换成你的信息</div>
       {/* 样板 goes in as 待审核 and is never enabled automatically: unfilled 【】 must never reach a customer. */}
       <IndustryTemplates perform={perform} notify={notify} collapsed={state.knowledge.some(k => !k.id.startsWith('knowledge_demo_'))} />

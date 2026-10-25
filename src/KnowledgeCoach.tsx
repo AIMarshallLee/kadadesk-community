@@ -27,12 +27,7 @@ export default function KnowledgeCoach({ state, perform, busy, notify, onImport,
   const revision = JSON.stringify([state.knowledge, state.workflows, state.provider, state.training]);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; cancel.current = true; }; }, []);
   useEffect(() => { let active = true; void api<TrainingView>('GET', '/knowledge/training').then(v => { if(active){setView(v);setError('');} }).catch(e=>{if(active)setError(e.message);}); return()=>{active=false;}; }, [revision]);
-  // The free trial model answers too (server: live()); only a missing own key AND no trial means "no model yet".
-  const [trial, setTrial] = useState<{ trial: boolean; available: boolean }>();
-  useEffect(() => { if (state.provider.hasKey) return; let active = true; void api<{ trial: boolean; available: boolean }>('GET', '/model/live').then(v => { if (active) setTrial(v); }).catch(() => {}); return () => { active = false; }; }, [state.provider.hasKey]);
-  // Never block a trial user: while the check loads, or when the trial relay's health ping is down, let the server try and
-  // explain any failure. Only "no own key and no trial at all" blocks practice.
-  const modelReady = state.provider.hasKey || trial === undefined || trial.trial;
+  const modelReady = Boolean(state.provider.hasKey);
   const ready = !!view?.approvedKnowledge && modelReady;
   const blocker = !view?.approvedKnowledge ? '还没有确认过的资料：先在上面导入并确认，再来试答。' : !modelReady ? '还没接好回复模型，先到「设置」一键配置。' : !consent ? '先勾选上面的「同意试答」，按钮才能点。' : '';
   async function answer(questions: string[]) {
@@ -68,11 +63,11 @@ export default function KnowledgeCoach({ state, perform, busy, notify, onImport,
     </section>
     <section className="panel coach-practice" id="coach-practice"><div className="panel-head"><div><h2><MessageSquare size={18}/>客户会怎么问？让助手答一次</h2><p>不是修改大模型本身，而是检查它能否依据你的资料回答。修改资料后需要重新试答。</p></div></div>
       <div className="coach-body">
-        {!modelReady&&<div className="notice warning">还没接好回复模型。先导入资料也可以。<Button variant="secondary" onClick={()=>navigate('settings')}>去一键配置</Button></div>}{!state.provider.hasKey&&trial?.trial&&!trial.available&&<p className="muted">免费模型刚才没连上，可以先试一次；不行就过几分钟再试。</p>}
+        {!modelReady&&<div className="notice warning">还没配置回复模型。请先到设置配置模型后再试答。<Button variant="secondary" onClick={()=>navigate('settings')}>去配置模型</Button></div>}
         <CustomerMarketField value={market} onChange={value=>{marketTouched.current=true;setMarket(value);}} disabled={running||busy}/><Field label="回复风格"><select disabled={running} value={workflowId} onChange={e=>setWorkflowId(e.target.value)}><option value="">通用客服 · 自然简洁</option>{availableWorkflows.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select></Field>
         <Field label="写一句客户可能会问的话" hint="尽量换一种说法，例如“苹果电脑能用吗”，不要只复制资料标题。"><textarea rows={3} maxLength={4000} value={question} disabled={running} onChange={e=>setQuestion(e.target.value)} placeholder="例如：你们的产品多少钱？适合我们公司吗？"/></Field>
         <details><summary>补充这位客户的聊天上文（可选，测试追问和话题切换）</summary><Field label="最近对话" hint="每行一条，以“客户：”或“我方：”开头，最多 12 条。不要放入其他客户的聊天。"><textarea rows={4} maxLength={12000} disabled={running} value={historyText} onChange={e=>setHistoryText(e.target.value)} placeholder={'客户：想了解企业 AI 培训\n我方：您希望先改善哪类工作？'}/></Field></details><div className="coach-suggestions">{suggested.map(q=><button key={q} disabled={running} onClick={()=>setQuestion(q)}>{q}</button>)}</div>
-        <label className="model-consent"><input type="checkbox" checked={consent} disabled={running} onChange={e=>setConsent(e.target.checked)}/><strong>同意试答（要先勾选这里）</strong>：会把这个问题和相关资料发给回复模型，算一次软件试用；不会给任何客户发消息。</label>
+        <label className="model-consent"><input type="checkbox" checked={consent} disabled={running} onChange={e=>setConsent(e.target.checked)}/><strong>同意试答（要先勾选这里）</strong>：会把这个问题和相关资料发给回复模型，不会给任何外部客户发消息。</label>
         <div className="page-actions"><Button busy={running} disabled={busy||!ready||!consent||!question.trim()} onClick={()=>void answer([question.trim()])}><Sparkles size={16}/>试答这一个问题</Button><Button variant="secondary" disabled={busy||running||!ready||!consent||!suggested.length} onClick={()=>void answer(suggested)}>逐题试答上面 {suggested.length} 问</Button>{running&&<Button variant="secondary" onClick={()=>{cancel.current=true;setProgress('将在当前这一题结束后停止。');}}>停止后续试答</Button>}{!running&&(blocker||!question.trim())&&<span className="muted" role="note">{blocker||'先写一句客户可能会问的话，或点上面的示例问题。'}</span>}</div>
         {progress&&<p role="status" className="muted">{progress}</p>}{error&&<p role="alert" className="error-text">{error}</p>}
       </div>

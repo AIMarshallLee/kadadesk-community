@@ -9,10 +9,8 @@ export const visionPresets = [
   { id: 'custom-cn', region: 'cn', label: '其他国内视觉服务', protocol: 'openai-vision', baseUrl: '', model: '' },
   { id: 'siliconflow-cn', region: 'cn', label: '硅基流动 SiliconFlow（中转）', protocol: 'openai-vision', baseUrl: 'https://api.siliconflow.cn/v1', model: 'Qwen/Qwen3-VL-32B-Instruct' },
   { id: 'gemini', region: 'global', label: 'Google Gemini', protocol: 'gemini-native', baseUrl: 'https://generativelanguage.googleapis.com', model: 'gemini-3.8-flash' },
-  { id: 'pixmind', region: 'global', label: 'PixMind 中转（OpenAI 兼容）', protocol: 'openai-vision', baseUrl: 'https://aihub-admin.aimix.pro/api-platform/v1', model: 'gemini-3.5-flash' },
+  { id: 'pixmind', region: 'global', label: 'PixMind（OpenAI 兼容）', protocol: 'openai-vision', baseUrl: 'https://aihub-admin.aimix.pro/api-platform/v1', model: 'gemini-3.5-flash' },
   { id: 'openrouter', region: 'global', label: 'OpenRouter（全球聚合）', protocol: 'openai-vision', baseUrl: 'https://openrouter.ai/api/v1', model: 'google/gemini-3.5-flash' },
-  { id: 'antigravity-local', region: 'global', label: 'Antigravity 本地反代', protocol: 'openai-vision', baseUrl: 'http://127.0.0.1:8045/v1', model: 'gemini-3.8-flash' },
-  { id: 'kadadesk-builtin', region: 'cn', label: '内置模型版（授权即用，无需密钥）', protocol: 'openai-vision', baseUrl: '', model: 'gemini-3.5-flash' },
   { id: 'custom-global', region: 'global', label: '其他国际视觉服务 / 中转站', protocol: 'openai-vision', baseUrl: '', model: '' },
   { id: 'kimi-cn', region: 'cn', label: '月之暗面 Kimi', protocol: 'openai-vision', baseUrl: 'https://api.moonshot.cn/v1', model: '' },
   { id: 'minimax-cn', region: 'cn', label: 'MiniMax', protocol: 'openai-vision', baseUrl: 'https://api.minimaxi.com/v1', model: '' },
@@ -119,7 +117,7 @@ const BLOCKED: Record<string, string> = {
   inputBackend: '键鼠执行方式请在咔哒里设置', chatExperience: '聊天场景请在咔哒里设置', cruiseMode: '旧版设置，已不再使用',
 };
 const PROVIDERS = visionPresets.map(p => p.id as string);
-const visionInput = (description: string) => obj({ provider: e(PROVIDERS.filter(id => id !== 'kadadesk-builtin'), '服务商'), baseUrl: s('服务地址（Base URL）；不填用服务商默认地址', 500), model: s('模型名'), apiKey: s('密钥：只写入、不会返回；不填则沿用同一地址已保存的密钥', 1000) }, ['provider', 'model'], description);
+const visionInput = (description: string) => obj({ provider: e(PROVIDERS, '服务商'), baseUrl: s('服务地址（Base URL）；不填用服务商默认地址', 500), model: s('模型名'), apiKey: s('密钥：只写入、不会返回；不填则沿用同一地址已保存的密钥', 1000) }, ['provider', 'model'], description);
 const WORKFLOW = obj({ action: e(['create', 'update', 'delete'], '新建、修改或删除'), id: s('update / delete 时必填'), name: s('名称'), scenario: e(['service', 'community', 'sales', 'recruitment', 'content'], '场景'), description: s('描述', 500), instructions: s('话术/工作流说明（提示词）', 20000), greeting: s('问候语', 500), enabled: b('是否启用') }, ['action'], '话术/工作流');
 
 const READ_TOOLS = [
@@ -197,7 +195,7 @@ export function createSettingsTools(options: {
       text: { baseUrl: ws.provider.baseUrl, model: ws.provider.model, temperature: ws.provider.temperature, hasKey: ws.provider.hasKey },
       modelProtocol: config.modelProtocol ?? 'openai-vision', replyModelMode: config.replyModelMode ?? 'vision', lightModel: config.lightModel ?? '', routingModel: config.routingModel ?? 'reply',
       autoPool: { enabled: pool.enabled, models: pool.models, ...(pool.at ? { at: pool.at } : {}), ...(pool.tested !== undefined ? { tested: pool.tested } : {}), running: pool.running === true, ...(pool.error ? { error: pool.error } : {}) },
-      providers: visionPresets.map(p => ({ provider: p.id, label: p.label, baseUrl: p.baseUrl, model: p.model, ...(p.id === 'kadadesk-builtin' ? { note: '内置模型版请在咔哒里一键开启' } : {}) })),
+      providers: visionPresets.map(p => ({ provider: p.id, label: p.label, baseUrl: p.baseUrl, model: p.model })),
     };
   };
 
@@ -285,7 +283,6 @@ export function createSettingsTools(options: {
   const visionArgs = (value: unknown, where: string) => {
     const v = only(value, ['provider', 'baseUrl', 'model', 'apiKey'], where);
     const preset = visionPresets.find(p => p.id === v.provider); if (!preset) throw new Error(`${where}.provider 无效`);
-    if (preset.id === 'kadadesk-builtin') throw new Error('内置模型版要用授权卡密，请在咔哒「设置 → 模型」里一键开启');
     if (typeof v.model !== 'string' || !v.model.trim()) throw new Error(`${where}.model 不能为空`);
     if (v.apiKey !== undefined && typeof v.apiKey !== 'string') throw new Error(`${where}.apiKey 必须是文字`);
     const baseUrl = typeof v.baseUrl === 'string' && v.baseUrl.trim() ? v.baseUrl.trim() : preset.baseUrl;
