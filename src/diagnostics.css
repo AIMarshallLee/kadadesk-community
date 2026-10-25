@@ -1,0 +1,9 @@
+.diagnostics-entry{white-space:nowrap;flex-shrink:0}.diagnostics-panel{min-width:0}.diagnostic-actions{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}.diagnostics-panel textarea{width:100%;min-height:240px;max-height:45vh;resize:vertical;font:12px/1.6 monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0}.diagnostics-panel h2{font-size:20px}.diagnostics-panel p{line-height:1.7}.cp-header .diagnostics-entry{padding:6px 10px;font-size:12px}
+.support-bundle-done{display:flex;flex-direction:column;gap:4px;padding:12px 14px;margin:0 0 12px;border-radius:10px;background:hsl(var(--a-h) calc(var(--a-s) * 85%) 97.5%);border:1px solid hsl(var(--a-h) calc(var(--a-s) * 40%) 88%);line-height:1.6}.diagnostic-secondary{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.diagnostic-secondary .btn{padding:6px 10px;font-size:13px}
+/* 2026-10-20 layout polish: tutorial chips are compact pills, section titles one size, actions keep a gap. */
+.diagnostics-self-help .btn{min-height:30px;line-height:1.4}
+.diagnostics-panel h2,.diagnostics-self-help h2{font-size:17px;font-weight:650;margin-bottom:4px}
+.diagnostics-self-help>.muted{margin-bottom:10px}
+.diagnostics-panel>h2{margin-top:6px}
+.diagnostics-panel .diagnostic-actions .muted{flex:1 1 200px;min-width:0;align-self:center}
+.diagnostics-panel>p{font-size:13.5px;color:#49505b}.diagnostics-panel>p.muted{font-size:12.5px;color:var(--muted)}

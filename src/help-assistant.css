@@ -1,0 +1,60 @@
+/* 搜索功能 (⌘K) and 问咔哒怎么用. Accent follows the theme hue (--a-h / --a-s). */
+.feature-focus{outline:3px solid hsl(var(--a-h) calc(var(--a-s) * 62%) 67.3%);outline-offset:6px;border-radius:10px;transition:outline-color .4s}
+.feature-results{margin-top:14px}
+.feature-results>div>button{display:flex;gap:12px;align-items:center;width:100%;border:0;background:none;text-align:left;padding:11px 8px;border-bottom:1px solid #edf0f2;border-radius:6px;color:inherit;cursor:pointer}
+.feature-results>div>button>span{flex:1;min-width:0}
+.feature-results>div>button>svg:first-child{flex-shrink:0;color:hsl(var(--a-h) calc(var(--a-s) * 40%) 50%)}
+.feature-results>div>button.is-active,.feature-results>div>button:hover{background:hsl(var(--a-h) calc(var(--a-s) * 33%) 96.5%)}
+.feature-results small{display:block;color:#8d96a0;font-size:11px;line-height:1.5;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.feature-results-head{margin:10px 8px 4px;font-size:10px;color:#a2a9b1;letter-spacing:.04em}
+.feature-go{display:inline-flex;align-items:center;gap:3px;font-style:normal;font-size:11px;white-space:nowrap;color:hsl(var(--a-h) calc(var(--a-s) * 45%) 42%);opacity:.55}
+.feature-results>div>button.is-active .feature-go,.feature-results>div>button:hover .feature-go{opacity:1}
+.feature-empty{text-align:center;padding:22px 8px}
+.feature-empty p{color:#7b8590;font-size:12px;margin:0 0 12px}
+.feature-ask-link{display:block;margin:12px auto 0;border:0;background:none;color:hsl(var(--a-h) calc(var(--a-s) * 45%) 42%);font-size:11px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.feature-ask-link:hover{text-decoration:underline}
+
+.help-fab{position:fixed;right:22px;bottom:84px;z-index:60;display:inline-flex;align-items:center;gap:7px;border:1px solid hsl(var(--a-h) calc(var(--a-s) * 33%) 85.3%);background:#fff;color:hsl(var(--a-h) calc(var(--a-s) * 45%) 36%);border-radius:999px;padding:9px 14px 9px 11px;font-size:12px;font-weight:550;box-shadow:0 6px 22px hsl(var(--a-h) calc(var(--a-s) * 39%) 20.6% / .12);cursor:pointer}
+.help-fab:hover{background:hsl(var(--a-h) calc(var(--a-s) * 56%) 96.5%)}
+
+.help-assistant{position:fixed;right:22px;bottom:22px;z-index:120;width:min(380px,calc(100vw - 32px));height:min(560px,calc(100vh - 44px));display:flex;flex-direction:column;background:#fff;border:1px solid #e3e7eb;border-radius:14px;box-shadow:0 18px 60px hsl(var(--a-h) calc(var(--a-s) * 39%) 20.6% / .2);overflow:hidden}
+.help-assistant>header{display:flex;align-items:center;gap:10px;padding:13px 14px;border-bottom:1px solid #eef0f3}
+.help-assistant>header>span{display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:hsl(var(--a-h) calc(var(--a-s) * 56%) 95%);color:hsl(var(--a-h) calc(var(--a-s) * 45%) 40%)}
+.help-assistant>header>div{flex:1;min-width:0}
+.help-assistant>header strong{display:block;font-size:13px}
+.help-assistant>header small{display:block;font-size:10px;color:#98a1aa}
+.help-turns{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.help-intro p{margin:0 0 8px;font-size:12px;color:#7b8590}
+.help-intro button{display:block;width:100%;text-align:left;margin-bottom:6px;border:1px solid #e6e9ee;background:#fafbfc;border-radius:9px;padding:9px 11px;font-size:12px;color:#4d5864;cursor:pointer}
+.help-intro button:hover{border-color:hsl(var(--a-h) calc(var(--a-s) * 33%) 80%);background:hsl(var(--a-h) calc(var(--a-s) * 56%) 97%)}
+.help-turn{max-width:92%;font-size:12.5px;line-height:1.7}
+.help-turn p{margin:0;white-space:pre-wrap;word-break:break-word}
+.help-turn.is-user{align-self:flex-end;background:hsl(var(--a-h) calc(var(--a-s) * 50%) 46%);color:#fff;padding:8px 12px;border-radius:12px 12px 3px 12px}
+.help-turn.is-assistant{align-self:flex-start;background:#f5f6f8;color:#34404c;padding:9px 12px;border-radius:12px 12px 12px 3px}
+.help-turn.is-error{background:#fff6f0;color:#8a4b1f}
+.help-thinking{display:inline-flex;align-items:center;gap:7px;color:#7b8590}
+.help-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.help-actions button{display:inline-flex;align-items:center;gap:4px;border:1px solid hsl(var(--a-h) calc(var(--a-s) * 33%) 82%);background:#fff;color:hsl(var(--a-h) calc(var(--a-s) * 45%) 36%);border-radius:999px;padding:4px 10px;font-size:11px;cursor:pointer}
+.help-actions button:hover{background:hsl(var(--a-h) calc(var(--a-s) * 56%) 95%)}
+.help-assistant>form{border-top:1px solid #eef0f3;padding:10px 12px}
+.help-assistant textarea{width:100%;box-sizing:border-box;resize:none;border:1px solid #e3e7eb;border-radius:9px;padding:8px 10px;font:inherit;font-size:12.5px;outline:none}
+.help-assistant textarea:focus{border-color:hsl(var(--a-h) calc(var(--a-s) * 40%) 70%)}
+.help-assistant>form>div{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.help-assistant>form small{font-size:10px;color:#a2a9b1}
+.help-assistant>form .btn{min-height:32px;padding:6px 12px}
+@media(max-width:650px){.help-fab span{display:none}.help-fab{padding:10px;right:16px;bottom:80px}.help-assistant{right:16px;bottom:16px}}
+
+/* 问咔哒 in the top bar: filled in the theme colour so it stands out, matching the theme picker. */
+.help-topbar{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:7px 14px 7px 11px;cursor:pointer;font-size:13px;font-weight:650;color:#fff;
+  background:linear-gradient(135deg,hsl(var(--a-h) calc(var(--a-s) * 62%) 52%),hsl(var(--a-h) calc(var(--a-s) * 70%) 40%));
+  box-shadow:0 4px 14px hsl(var(--a-h) calc(var(--a-s) * 60%) 40% / .28);white-space:nowrap}
+.help-topbar small{font-size:11px;font-weight:500;opacity:.85;padding-left:6px;border-left:1px solid rgba(255,255,255,.35)}
+.help-topbar:hover{filter:brightness(1.06);box-shadow:0 6px 18px hsl(var(--a-h) calc(var(--a-s) * 60%) 40% / .36)}
+.help-topbar.is-open{outline:2px solid hsl(var(--a-h) calc(var(--a-s) * 62%) 80%);outline-offset:2px}
+@media(max-width:980px){.help-topbar small{display:none}}
+@media(max-width:650px){.help-topbar span{display:none}.help-topbar{padding:8px}}
+
+/* Link from an answer to the 使用手册 section it came from. */
+.help-manual-link{margin-top:7px;text-align:left}
+.help-intro .help-manual-hint{margin-top:12px}
+.help-intro .help-manual-hint button{display:inline-flex;width:auto;border:0;background:none;padding:0;margin:0 0 0 4px}

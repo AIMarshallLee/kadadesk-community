@@ -1,0 +1,41 @@
+/* Header controls share a baseline and wrap as whole controls, never within labels. */
+.app-topbar {
+  height: auto;
+  min-height: 72px;
+  padding-block: 14px;
+  gap: 12px 24px;
+  flex-wrap: wrap;
+}
+.app-topbar .breadcrumbs { flex-shrink: 0; }
+.app-topbar .topbar-right {
+  margin-left: auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+.app-topbar .environment-tag {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+.app-topbar svg { flex-shrink: 0; }
+.app-topbar .environment-dot { flex: 0 0 4px; }
+.app-topbar .topbar-license { background: #fef3c7; color: #a65b08; border-color: #fde68a; font-weight: 600; }
+.app-topbar .topbar-license.is-licensed { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+.app-topbar .topbar-copilot { background: hsl(var(--a-h) calc(var(--a-s) * 100%) 96.9%); color: hsl(var(--a-h) calc(var(--a-s) * 83%) 53.3%); border-color: hsl(var(--a-h) calc(var(--a-s) * 97%) 87.3%); font-weight: 600; }
+.app-topbar .search-trigger { min-height: 32px; padding: 6px; white-space: nowrap; }
+.app-topbar .search-trigger kbd { margin-left: 0; }
+@media (max-width: 1100px) {
+  .app-topbar .topbar-platform { display: none; }
+}
+@media (max-width: 600px) {
+  .app-topbar { padding-block: 10px; gap: 10px; }
+  .app-topbar .topbar-right { width: 100%; margin-left: 0; justify-content: flex-start; gap: 8px; }
+}

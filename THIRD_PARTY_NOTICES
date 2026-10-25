@@ -1,0 +1,52 @@
+# KADAdesk Community - Third-Party Software Notices
+
+This project incorporates components from third-party open-source software, listed below along with their respective license types:
+
+## Bundled and Runtime Dependencies
+
+1. **PDF.js (pdfjs-dist)**
+   - License: Apache License 2.0
+   - Copyright: Mozilla Foundation and contributors
+   - Reference: licenses/third-party/pdfjs-dist-6.1.200-LICENSE.txt
+
+2. **React & React DOM**
+   - License: MIT License
+   - Copyright (c) Meta Platforms, Inc. and affiliates.
+
+3. **Electron**
+   - License: MIT License
+   - Copyright (c) Electron contributors / OpenJS Foundation
+
+4. **Lucide Icons (lucide-react)**
+   - License: ISC License
+   - Copyright (c) Lucide Project Authors
+
+5. **esbuild**
+   - License: MIT License
+   - Copyright (c) Evan Wallace
+
+6. **Vite**
+   - License: MIT License
+   - Copyright (c) 2019-present Evan You & Vite Contributors
+
+7. **TypeScript**
+   - License: Apache License 2.0
+   - Copyright (c) Microsoft Corporation
+
+8. **saxes**
+   - License: ISC License
+   - Reference: licenses/third-party/saxes-5.0.1.txt
+
+9. **omggif**
+   - License: MIT License
+   - Reference: licenses/third-party/omggif-1.0.10.txt
+
+10. **data-uri-to-buffer**
+    - License: MIT License
+    - Reference: licenses/third-party/data-uri-to-buffer-4.0.1.txt
+
+11. **readable-web-to-node-stream**
+    - License: MIT License
+    - Reference: licenses/third-party/readable-web-to-node-stream-3.0.4.txt
+
+For additional third-party license texts, please inspect the `licenses/third-party/` directory.

@@ -1,17 +1,31 @@
-const token=()=>document.querySelector<HTMLMetaElement>('meta[name="api-token"]')?.content || '';
-export async function api<T=any>(method:string,path:string,body?:unknown):Promise<T> {
-  if (!/^\/(?:moments|plugins|knowledge)(?:\/|$)/.test(path)) throw new Error('Unsupported community route');
-  const result=await fetch('/api'+path,{
-    method,
-    headers:{'x-kadadesk-token':token(),...(body === undefined ? {} : {'content-type':'application/json'})},
-    ...(body === undefined ? {} : {body:JSON.stringify(body)}),
-    credentials:'same-origin',
+import { productMessage } from '../shared/product-copy';
+import type { ApiRequest, AppState } from '../shared/types';
+
+let bootstrapped = false;
+export async function api<T>(method: ApiRequest['method'], path: string, body?: unknown): Promise<T> {
+  if (window.flowdesk) return window.flowdesk.request({ method, path, body }) as Promise<T>;
+  if (!bootstrapped) {
+    const response = await fetch('/api/bootstrap', { credentials: 'same-origin' });
+    if (!response.ok) throw new Error('本地服务尚未启动，请运行启动脚本后重试。');
+    bootstrapped = true;
+  }
+  const response = await fetch(`/api${path}`, {
+    method, credentials: 'same-origin',
+    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  const parsed=await result.json().catch(()=>null);
-  if (!result.ok) throw new Error(parsed?.error || ('请求失败：'+result.status));
-  return parsed as T;
+  const result = await response.json().catch(() => ({ error: '服务返回了无法读取的响应。' }));
+  if (!response.ok) { if (response.status === 401) bootstrapped = false; throw new Error(productMessage(result.error || result.message || '操作失败，请重试。')); }
+  return result as T;
 }
-export async function copyText(content:string):Promise<void> {
-  if(!navigator.clipboard?.writeText) throw new Error('浏览器无法使用剪贴板，请使用 HTTPS/本机地址，或手工复制');
-  await navigator.clipboard.writeText(content);
+export const getState = () => api<AppState>('GET', '/state');
+export const navigate = (path = 'app') => { window.location.hash = path; };
+export async function copyText(text: string) {
+  if (window.flowdesk) return window.flowdesk.copyText(text);
+  await navigator.clipboard.writeText(text);
+}
+export function downloadJson(data: unknown, name: string) {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
