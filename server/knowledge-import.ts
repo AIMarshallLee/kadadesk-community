@@ -361,8 +361,9 @@ function pdfAssets(): { cMapUrl?: string; cMapPacked?: boolean; standardFontData
   if (typeof __dirname === 'string') bases.push(join(__dirname, 'pdfjs'));
   try { bases.push(dirname(createRequire(typeof __filename === 'string' ? __filename : import.meta.url).resolve('pdfjs-dist/package.json'))); } catch { /* not installed */ }
   for (const base of bases) if (existsSync(join(base, 'cmaps')) && existsSync(join(base, 'standard_fonts'))) {
-    // pdf.js in Node reads `${base}${name}` with fs: plain paths with a trailing separator, not file:// URLs.
-    return { cMapUrl: join(base, 'cmaps') + sep, cMapPacked: true, standardFontDataUrl: join(base, 'standard_fonts') + sep };
+    const cMapPath = (join(base, 'cmaps') + '/').replace(/\\/g, '/');
+    const fontPath = (join(base, 'standard_fonts') + '/').replace(/\\/g, '/');
+    return { cMapUrl: cMapPath, cMapPacked: true, standardFontDataUrl: fontPath };
   }
   return {};
 }
