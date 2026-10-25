@@ -1,57 +1,90 @@
-# KADAdesk Community · 可扩展 AI 工作台
+# KADAdesk Community (咔哒社区版)
 
-**一个工作台，按需组合插件。让开发者自用、研究、部署和共同开发更多 AI 业务能力。**
+> **Your Knowledge. Your Workflows. An Open AI Copilot for Your Desktop.**
+> **把业务知识变成生产力：开源、自托管的桌面智能工作台。**
 
-> **真实进度：** 社区版有工作台首页、插件管理、两个可信的本机内置模块：**内容运营**与**基础知识库**。两者可在界面中独立启用或停用；服务端停用后会拒绝对应业务接口。真正的第三方插件包下载/安装/卸载/升级、权限沙箱、完整企业知识库和 AI 回复插件尚未实现，正在分阶段迁移。
+[![License](https://img.shields.io/badge/License-KADAdesk--Community--1.0-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-brightgreen.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue.svg)](https://www.typescriptlang.org/)
 
-[发布与迁移政策](docs/PUBLICATION-POLICY.md) · [整体迁移进度](docs/FULL-SOURCE-MIGRATION.md) · [插件架构](docs/PLUGIN-ARCHITECTURE-V1.md) · [个人许可](LICENSE) · [参与共创](CONTRIBUTING.md)
+[English](#english-overview) | [简体中文](#功能概览) | [Commercial Licensing](COMMERCIAL-LICENSE.md) | [Development](CONTRIBUTING.md)
 
-## 工作台目前有什么？
+---
 
-| 可用模块 | 实际能做的事 | 暂时不支持 |
-| --- | --- | --- |
-| 工作台 Core | 内置模块发现、启用/停用、停用后的服务端拒绝、持久化 | 任意插件安装、签名/沙箱、多租户企业管理 |
-| 内容运营 Content Ops | 多账号任务、图文素材、逐账号审核、ZIP 素材交接、人工核实 | 自动连接外部平台或自动发布 |
-| 基础知识库 Knowledge Lite | 本地录入、人工审核、已审核内容检索、启停/删除、重启恢复 | 复杂文件导入、向量检索、云同步、外部模型自动回复 |
+## 简体中文
 
-正在将原私有产品中合规且拥有版权的模块逐步迁入公共社区。**私有原仓库继续存在且保持 Private**；公开仓库采用独立 Git 历史，通过全新快照提交安全代码，不镜像或 Fork 原始历史。
+### 项目定位
+KADAdesk Community 是一个面向个人创作者、中小团队及企业自用场景的**开源桌面智能工作台核心**。它将本地企业知识库、AI 辅助回复、客户跟进清单和开放协议（MCP）整合到统一的本地应用中。
 
-## 运行（Windows / macOS 本地开发）
+社区版坚持**隐私优先、完全本地化、自带模型端点（BYOK）**的设计哲学：
+- 🚫 **无内置云端密钥与后门**：用户完全掌控自己的 API Key，直连各大主流大语言模型服务商。
+- 🚫 **无灰色自动化外挂**：不包含任何破解第三方聊天软件协议的私有外挂代码，回复草稿仅供人工确认与一键复制。
+- 🛡️ **安全沙箱与敏感词护栏**：内置本地敏感信息识别护栏，防止凭证与隐私数据无意泄露给大模型。
 
-安装 Node.js 22 或 24，然后：
+### 核心功能
+
+1. **企业级轻量知识库 (Knowledge Base)**
+   - 支持本地文件、文件夹、ZIP 压缩包及外部链接导入。
+   - 解析常见文本与文档格式（Markdown, TXT, PDF, DOCX, XLSX, CSV, JSON 等）。
+   - 知识候选审核流与自动同步知识源。
+   - 知识库本地备份与恢复。
+
+2. **桌面工作台与多模型预设 (Desktop Workspace & BYOK)**
+   - 现代化桌面侧边栏与独立工作台交互，内置小紫怪与专业主题。
+   - 自带模型端点预设（OpenAI, SiliconFlow, 深度求索, 智谱 AI, 月之暗面, 零一万物, 阿里云百炼等）。
+   - 智能路由与试答草稿辅助。
+
+3. **客户档案与跟进清单 (Customer Profiles)**
+   - 本地轻量化客户标签、跟进记录与分组管理。
+   - 基于知识库智能生成人工跟进草稿，支持一键复制到剪贴板。
+
+4. **开放协议集成 (Model Context Protocol / MCP)**
+   - 开放式 MCP 标准接口，支持作为外部 Agent 的本地知识与任务执行上下文提供方。
+
+---
+
+## English Overview
+
+KADAdesk Community is an open-source, self-hosted desktop AI copilot core. It combines local knowledge retrieval, context-aware reply drafting, customer records, and Model Context Protocol (MCP) tooling in an extensible desktop application.
+
+### Key Highlights
+- **Bring Your Own Keys (BYOK):** No bundled proprietary keys or proxy servers. Connect directly to standard model providers with full transparency.
+- **Privacy & Safety First:** Runs locally with secret guards to prevent sensitive credentials and personal data from being transmitted to model providers.
+- **Curated Knowledge Retrieval:** Ingest PDFs, Office documents, spreadsheets, and Markdown with candidate review and source-linking workflows.
+- **Safe Interaction Model:** Designed for human-in-the-loop workflows; generates reviewable drafts without unauthorized platform automation.
+
+---
+
+## 快速上手 (Getting Started)
+
+### 环境依赖 (Prerequisites)
+- **Node.js**: >= 20.0.0 (推荐 Node.js 22 LTS)
+- **npm**: >= 10.0.0
+
+### 安装与运行 (Setup & Run)
 
 ```bash
+# 1. 克隆代码仓库
 git clone https://github.com/AIMarshallLee/kadadesk-community.git
 cd kadadesk-community
+
+# 2. 安装依赖项
 npm ci
-npm run dev
-```
 
-在本机浏览器打开终端显示的 `http://127.0.0.1:<端口>`。数据默认仅保存于该设备的 `~/.kadadesk-community/`，不会自动同步到别的电脑或手机。
-
-校验：
-
-```bash
-node scripts/verify-publication.mjs
+# 3. 运行本地自动化测试套件
 npm test
-npm run smoke
+
+# 4. 启动本地前端与轻量服务开发模式
+npm run dev
+
+# 5. 构建生产产物
 npm run build
 ```
 
-本地/云端自动化通过并不表示 Windows、macOS 原生客户端或真实第三方平台账号已通过发布验收。
+---
 
-## 源码公开边界
+## 许可证与商业支持 (License & Support)
 
-公开工作台、知识库核心、合理授权的 AI 与经营插件、Plugin SDK 和可验证的测试；**不公开**原始 Git 历史、密钥、客户资料、商业授权/商户签名后台、未获重新分发许可的第三方代码或数据。每个迁出模块须做文件依赖审查和自动秘密检测。
-
-## 个人使用许可与社区共创
-
-**[KADAdesk Personal & Community Source License v0.2](LICENSE)** 为个人非商业 Source-Available 许可，**不是 OSI 标准开源许可证**。个人学习、研究和非商业 Fork/共创免费；**公司或其他组织实际内部使用、部署，以及个人商业经营用途，均需事先获得书面授权**。旧版 v0.1 已经授予的许可不因此追溯失效；参见 [许可历史](docs/LICENSE-HISTORY.md) 和 [商业许可说明](COMMERCIAL-LICENSE.md)。
-
-欢迎提交 Issue、复现测试和插件建议。代码 PR 的版权与未来商用再许可需按 [CONTRIBUTING](CONTRIBUTING.md) 另外确认。
-
-### English
-
-KADAdesk Community is an extensible AI workspace in active development. It currently ships **two trusted bundled modules** (content operations and local reviewed-knowledge search), with persistent enable/disable and server-side enforcement. Independent third-party plugin installation, enterprise multi-tenant access control, and official channel publishing are **not yet implemented**. Source is available for **personal noncommercial use** under LICENSE v0.2; company use requires written permission.
-
-Copyright (c) 2026 AIMarshallLee and respective contributors.
+- **社区开源许可：** 本项目遵循 [KADAdesk Community License v1.0](LICENSE)（基于 Apache 2.0，附加防 SaaS 倒卖、保留版权与标识、无商标授权及贡献回流条款）。
+- **企业自用：** 企业与团队内部自用完全免费，无需签署额外协议。
+- **商业授权与合作：** 针对多租户托管、商业贴牌、专属通信渠道插件定制等场景，请参阅 [商业授权指南](COMMERCIAL-LICENSE.md) 或访问 [https://kunlungrowth.com](https://kunlungrowth.com)。

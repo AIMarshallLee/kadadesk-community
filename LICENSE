@@ -1,94 +1,54 @@
-KADAdesk Personal & Community Source License, Version 0.2
-Effective for source distributed with this license beginning 2026-10-24.
-Copyright (c) 2026 AIMarshallLee and the respective copyright owners.
-All rights not expressly granted are reserved.
+KADAdesk Community License, Version 1.0
+Copyright (c) 2026 KADAdesk Authors and Contributors.
 
-IMPORTANT NOTICE
-This is a SOURCE-AVAILABLE, PERSONAL NON-COMMERCIAL LICENSE.
-It is NOT an OSI-approved open-source license. You must obtain a separate
-written authorization for organization use or commercial use, including
-private/internal business deployment even when the software is not sold.
+This work is licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License and the
+Additional Terms set forth below. You may obtain a copy of the License at:
 
-1. Covered Work and Copyright
-"Software" means the original KADAdesk code, documentation and modifications
-that are expressly provided under this Version 0.2 license. Third-party
-components remain governed by their own licenses. A contributor can grant
-permissions only for rights that contributor actually owns.
+    http://www.apache.org/licenses/LICENSE-2.0
 
-2. Free Personal Community License
-Subject to all terms, copyright holders grant an individual a worldwide,
-non-exclusive, non-transferable, royalty-free license to download, inspect,
-run, test, adapt and share the Software for PERSONAL NON-COMMERCIAL purposes
-only. This includes independent learning, research, hobby experiments,
-running it on personal devices, and public community development.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
-An individual may fork and distribute changes for the same permitted
-PERSONAL NON-COMMERCIAL purpose if all original copyright notices, this
-LICENSE, third-party notices and a clear statement of the modifications
-remain with the distributed source. Recipients obtain only the permissions
-specified by this license, directly from the relevant rights holders.
+================================================================================
+ADDITIONAL TERMS AND CONDITIONS (KADAdesk Community License v1.0)
+================================================================================
 
-3. Uses That Require Prior Written Authorization
-Without a separate written commercial/organization license you may NOT:
-(a) deploy, operate, evaluate in a production workflow or provide the
-    Software for use by a company, other organization, employer, government,
-    non-profit or their personnel as part of the organization's activities,
-    even for internal use, even if there is no resale, and even if the
-    organization is not earning a profit;
-(b) use the Software as part of a paid service, professional consulting,
-    client delivery, sales, marketing, revenue-generating content operation,
-    business workflow or other activity pursued for economic benefit,
-    including an individual's sole-proprietor business;
-(c) resell, rent, relicense, sublicense, white-label, charge for access,
-    operate as SaaS, offer hosted access to third parties, or integrate the
-    Software in a commercial product, hosted service or managed service;
-(d) grant any third party the right to perform the prohibited acts above.
-Merely owning a business or working for a company does not disqualify an
-individual from separate, genuinely personal hobby/research use. The actual
-purpose and beneficiary of use, not the device ownership alone, controls.
+In addition to the terms and conditions of the Apache License, Version 2.0,
+the following conditions apply to any distribution, deployment, or use of the
+Software:
 
-4. No Implied Platform or Data Rights
-This license does NOT grant a license to KADAdesk trademarks or logos
-beyond factual attribution; access to any platform API, account, private
-protocol, personal/customer data, proprietary hardware firmware, or
-third-party assets. Follow applicable laws and platform terms.
+1. No Hosted SaaS Resale:
+You may not offer, sell, rent, sublicense, or provide the Software or any
+substantially derivative work as a multi-tenant cloud service, managed hosted
+service, or commercial Software-as-a-Service (SaaS) where the core commercial
+value offered is access to or operation of the Software. Single-tenant internal
+business self-use and individual deployments are permitted.
 
-5. Security, Distribution and Contributions
-Do not include passwords, tokens, customer records, private conversations
-or unauthorized third-party materials in community contributions.
-Contributors retain copyright to their independent contributions. A
-pull request alone does NOT transfer copyright or grant the project owner
-permission to relicense a contributor's code commercially; that requires
-a separate written contributor agreement or other express permission.
-The project can decline contributions without compatible rights.
+2. Retention of Notices and Branding:
+Any copy, distribution, or derivative work must retain all original copyright
+notices, license files, attribution statements, and the "KADAdesk" or "咔哒"
+identification in the software interface, user manuals, and source headers.
 
-6. Termination and No Warranty
-Rights granted under this license terminate for a licensee upon breach,
-without limiting remedies available under law. The Software is provided
-"AS IS" without warranties of merchantability, fitness, security, platform
-compatibility or non-infringement, to the extent permitted by law. Liability
-is disclaimed to the maximum extent permitted by applicable law.
+3. No Trademark Grant:
+This License does not grant any trademark rights, service mark rights, trade
+names, or logos associated with KADAdesk. Use of project marks is permitted
+solely for factual attribution and descriptive purposes.
 
-7. Earlier Versions and Future Releases
-This Version 0.2 governs only copies and original code offered under it.
-It does NOT retroactively withdraw permissions already granted for older
-copies under an earlier license, subject to the older license's terms.
-Source available in the repository's past public commit history may have
-different license terms; consult the LICENSE at the particular commit.
-Future versions may use different terms only for newly licensed copies.
+4. Contributor License Flowback:
+By submitting any contribution (including pull requests, patches, or code
+modifications) to this project, you grant the project maintainers a perpetual,
+worldwide, non-exclusive, royalty-free, irrevocable license to incorporate,
+relicense, and distribute your contribution under this License, commercial
+dual-licensing terms, or future versions of community licenses.
 
-8. Commercial Licensing Contact
-Written permission for internal organizational use, deployments, customer
-delivery, white-label, SaaS or other excluded purposes must be obtained
-from the relevant copyright owner(s). Start with the repository owner or
-https://kunlungrowth.com for commercial discussion. Merely contacting the
-owner does not grant permission.
-
-中文说明（便于理解，发生解释差异时以英文条款为主）：
-- 个人学习、研究、个人电脑实验及非商业共创：免费。
-- 公司/组织内部经营使用或部署，即使不卖软件：需要事先书面授权。
-- 个人把软件用于收费服务、带货/内容变现、商业客户运营：需要书面授权。
-- Fork 和贡献可以，但只按本许可证传播；商业再授权贡献代码须另有书面授权。
-- 本许可是「源码可见/个人非商业」，不是 MIT/Apache，也不是 OSI 标准开源。
-- v0.1 时代已经授予的许可不会因为发布 v0.2 自动失效。
-- 正式规模商业化前建议进行相应法域的软件许可法律复核。
+================================================================================
+中文条款概要（仅供阅读参考，如有歧义以英文条款为准）：
+================================================================================
+1. 禁转售 SaaS：不得将本软件作为多租户 SaaS 云服务直接收费运营或贴牌出租。企业与个人内部自用完全免费。
+2. 保留标志与版权：任何修改或二次分发必须保留原始版权、许可证及 KADAdesk 界面标识。
+3. 标志不随代码授权：不转让商标、商号及徽标权利，仅允许事实性描述引用。
+4. 贡献者许可回流：向本项目提交的代码默认授权维护方在社区版及商业授权体系中再分发。

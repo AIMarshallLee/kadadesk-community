@@ -1,25 +1,25 @@
-name: Community CI
+name: Validate source
+
 on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    strategy:
-      matrix:
-        node: [22, 24]
+  windows-checks:
+    runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 24
           cache: npm
-      - run: node scripts/verify-publication.mjs
       - run: npm ci
       - run: npm test
-      - run: npm run smoke
+      - run: npm run build

@@ -1,0 +1,26 @@
+import { useEffect,useState } from 'react';
+import type { PageProps } from './App';
+import type { KnowledgeSourceView } from '../shared/knowledge-sources';
+import { api,navigate } from './api';
+import { Button,Field } from './components';
+export default function KnowledgeSources({notify,perform}:PageProps){
+  const [view,setView]=useState<KnowledgeSourceView>(),[kind,setKind]=useState<'feishu'|'notion'>('feishu'),[urls,setUrls]=useState(''),[selected,setSelected]=useState<string[]>([]),[working,setWorking]=useState(false);
+  const load=()=>api<KnowledgeSourceView>('GET','/knowledge/sources').then(setView);
+  useEffect(()=>{void load().catch(e=>notify(e.message,true));const timer=setInterval(()=>void load().catch(()=>{}),2000);return()=>clearInterval(timer);},[]);
+  const locked=working||!!view?.busy;
+  const run=async(action:()=>Promise<KnowledgeSourceView|null>,selectAdded=false)=>{setWorking(true);try{const next=await action();if(next){setView(next);if(selectAdded){const added=next.sources.filter(s=>!view?.sources.some(old=>old.id===s.id));if(added.length){setSelected(added.map(s=>s.id).slice(0,30));notify('已添加并选中资料源，点击“读取并整理所选资料”继续。');}else notify('这个资料源已在列表中，请勾选后整理。');}}await perform('GET','/state');}catch(e){notify((e as Error).message,true);}finally{setWorking(false);}};
+  return <section className="panel knowledge-intake"><div className="intake-body"><h2>我的资料源</h2><p>资料留在原来的位置。添加一次，之后在这里集中读取和整理；不需要每次重新选择文件或复制同一链接。</p>
+    <ol className="source-steps" aria-label="资料整理步骤"><li>1. 选择资料位置</li><li>2. 读取并整理</li><li>3. 核对后启用</li></ol>
+    <div className="page-actions"><Button disabled={!view||!window.flowdesk?.knowledgeSources||locked} onClick={()=>void run(()=>window.flowdesk!.knowledgeSources!.pickFolder(),true)}>添加本机 / Obsidian 文件夹</Button><Button variant="secondary" onClick={()=>navigate('knowledge/drives')}>资料只在网盘？连接网盘</Button></div>
+    <p className="muted">本机目录包含子目录，每个资料源最多 100 份、32MB，单文件 8MB；文件太多可分业务添加子目录。云盘已同步在电脑的目录也能添加。隐藏目录和目录链接会跳过。</p>
+    <details className="source-online"><summary>资料在飞书 / Notion？添加在线文档</summary><Button variant="secondary" onClick={()=>navigate('knowledge/connections')}>配置飞书 / Notion 连接</Button><Field label="批量添加在线文档"><select value={kind} disabled={locked} onChange={e=>setKind(e.target.value as typeof kind)}><option value="feishu">飞书知识库 / 云文档</option><option value="notion">Notion</option></select></Field>
+    <textarea rows={3} maxLength={30000} aria-label="资料源文档链接" value={urls} disabled={locked} onChange={e=>setUrls(e.target.value)} placeholder="每行一个文档链接，一次最多 30 个；先在连接页配置账号阅读权限。"/>
+    <Button variant="secondary" disabled={!view||locked||!urls.trim()} onClick={()=>void run(async()=>{const next=await api<KnowledgeSourceView>('POST','/knowledge/sources',{kind,urls:urls.split(/\r?\n/).map(u=>u.trim()).filter(Boolean)});setUrls('');return next;},true)}>记住这些资料源</Button></details>
+    <div className="notice">点击整理后，咔哒会读取勾选资料、分段去重并保存待审核知识；解析不调用云端模型。变化或读取未完成的来源会暂停相关知识参与回答；重新整理成功后核对启用。内测期间开放此功能。</div>
+    <p role="status">{!view?'正在读取资料源…':`共 ${view.sources.length} 个来源 · 已选 ${selected.length} 个 · ${view.sources.filter(s=>s.status==='error').length} 个需重试`}</p>
+    <div className="page-actions"><Button disabled={locked||!view?.sources.length} variant="secondary" onClick={()=>setSelected(view?.sources.map(s=>s.id).slice(0,30)||[])}>选择前 30 个来源</Button><Button variant="ghost" disabled={locked||!selected.length} onClick={()=>setSelected([])}>取消选择</Button><Button busy={working} disabled={locked||!selected.length} onClick={()=>void run(()=>api('POST','/knowledge/sources/sync',{ids:selected,confirm:true}))}>读取并整理所选资料</Button>{view?.busy&&<Button variant="secondary" disabled={view.stopRequested} onClick={()=>void api<KnowledgeSourceView>('POST','/knowledge/sources/stop').then(setView).catch(e=>notify(e.message,true))}>{view.stopRequested?'正在停止…':'停止整理'}</Button>}<Button variant="secondary" onClick={()=>navigate('knowledge/import')}>查看并审核知识</Button><Button variant="secondary" onClick={()=>navigate('knowledge')}>审核后，试答一个问题</Button></div>
+    {view&&!view.sources.length&&<p>从一个小文件夹开始：放入产品介绍、服务说明或价目表，添加后点击整理。</p>}
+    <div className="source-list">{view?.sources.map(source=><article key={source.id}><label><input type="checkbox" checked={selected.includes(source.id)} disabled={locked||(!selected.includes(source.id)&&selected.length>=30)} onChange={e=>setSelected(e.target.checked?[...selected,source.id]:selected.filter(id=>id!==source.id))}/><strong>{source.name}</strong></label><small>{['baidu','alipan','google','onedrive'].includes(source.kind)?'已绑定授权账号的远端文件':source.location}</small><p role={source.status==='error'?'alert':undefined}>{source.status==='reading'?'正在整理 · ':source.status==='error'?'未完成 · ':''}{source.detail}</p>{source.updatedAt&&<small>上次读取：{new Date(source.updatedAt).toLocaleString()}</small>}<Button variant="ghost" disabled={locked} onClick={()=>void run(async()=>{const next=await api<KnowledgeSourceView>('DELETE','/knowledge/sources',{id:source.id});setSelected(ids=>ids.filter(id=>id!==source.id));return next;})}>移除来源（保留知识）</Button></article>)}</div>
+    <details><summary>其他网盘的接入进度</summary><p>百度网盘、阿里云盘、Google Drive、OneDrive 均在接入范围内。请在“连接网盘”中配置应用、授权账号并选择远端文件。当前为手动读取更新；平台应用获批与真实账号权限仍需逐家验证。</p></details>
+  </div></section>;
+}

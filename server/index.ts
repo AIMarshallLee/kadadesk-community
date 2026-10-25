@@ -1,117 +1,115 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { randomBytes } from 'node:crypto';
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { readFile, mkdir } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import { createMomentsOperations } from './moments-campaign.ts';
-import { createPluginHost } from './plugin-host.ts';
-import { createCommunityKnowledge } from './knowledge-community.ts';
-import { ApiError } from './autopilot.ts';
-import { isAllowedRequest } from '../desktop/guards.ts';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { createReadStream, existsSync } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { extname, join, normalize, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import crypto from 'node:crypto';
+import { createService, ApiError } from './service.ts';
 
-const dist = resolve(fileURLToPath(new URL('../dist', import.meta.url)));
-const mime = (name:string) => name.endsWith('.js') ? 'text/javascript; charset=utf-8'
-  : name.endsWith('.css') ? 'text/css; charset=utf-8'
-  : name.endsWith('.svg') ? 'image/svg+xml'
-  : name.endsWith('.woff2') ? 'font/woff2'
-  : 'application/octet-stream';
-const MAX_JSON = 5_700_000;
-function fail(res:ServerResponse,code:number,message:string) {
-  res.writeHead(code, {'content-type':'application/json; charset=utf-8','cache-control':'no-store'});
-  res.end(JSON.stringify({error:message}));
-}
-async function parseJson(req:IncomingMessage) {
-  if (!String(req.headers['content-type']??'').startsWith('application/json')) throw new ApiError(415,'仅支持 JSON 请求');
-  let size=0;const chunks:Buffer[]=[];
-  for await (const chunk of req) {
-    size+=chunk.length;
-    if (size>MAX_JSON) throw new ApiError(413,'请求正文过大');
-    chunks.push(Buffer.from(chunk));
-  }
-  if(!size)return {};
-  let input:unknown;
-  try { input=JSON.parse(Buffer.concat(chunks).toString('utf8')); }
-  catch {throw new ApiError(400,'JSON 请求格式无效');}
-  if(!input || typeof input!=='object' || Array.isArray(input))throw new ApiError(400,'请输入 JSON 对象');
-  return input as Record<string,unknown>;
-}
-export async function createLocalServer(options:{dataDir:string;port?:number}) {
-  await mkdir(options.dataDir,{recursive:true,mode:0o700});
-  const moments=await createMomentsOperations(options.dataDir);
-  const plugins=await createPluginHost(options.dataDir);
-  const knowledge=await createCommunityKnowledge(options.dataDir);
-  const token=randomBytes(32).toString('hex');
-  let activePort=0;
-  const server=createServer(async(req,res)=>{
+type HttpOptions = { root?: string; dataDir?: string; host?: string; port?: number };
+const json = (res: ServerResponse, code: number, value: unknown, head = false) => {
+  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(head ? undefined : JSON.stringify(value));
+};
+const maxBodyBytes = 15 * 1024 * 1024;
+const readBody = async (req: IncomingMessage) => new Promise<unknown>((resolve, reject) => {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  let tooLarge = false;
+  req.on('data', (chunk: Buffer) => {
+    size += chunk.length;
+    if (size > maxBodyBytes) {
+      if (!tooLarge) {
+        tooLarge = true;
+        reject(new ApiError(413, '请求体过大'));
+      }
+      return;
+    }
+    chunks.push(chunk);
+  });
+  req.on('end', () => {
+    if (tooLarge) return;
     try {
-      const host=req.headers.host;
-      if(!host || !/^(127\.0\.0\.1|localhost):\d+$/.test(host) || host!==`127.0.0.1:${activePort}`)
-        return fail(res,403,'只允许通过本机 127.0.0.1 访问');
-      const origin=req.headers.origin;
-      if(origin && origin!==`http://127.0.0.1:${activePort}`)return fail(res,403,'已阻止跨站来源');
-      const pathname=new URL(req.url??'/',`http://127.0.0.1:${activePort}`).pathname;
-      res.setHeader('cache-control','no-store');
-      res.setHeader('x-content-type-options','nosniff');
-      res.setHeader('x-frame-options','DENY');
-      res.setHeader('referrer-policy','no-referrer');
-      res.setHeader('content-security-policy',"default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:");
-      if(pathname.startsWith('/api/')) {
-        if(req.headers['x-kadadesk-token']!==token)return fail(res,403,'本地会话已失效，请刷新工作台');
-        const path=pathname.slice('/api'.length);
-        const isContent = path==='/moments'||path.startsWith('/moments/');
-        const isPlugin = path==='/plugins'||path.startsWith('/plugins/');
-        const isKnowledge=path==='/knowledge'||path.startsWith('/knowledge/');
-        if(!isContent&&!isPlugin&&!isKnowledge)return fail(res,404,'接口不存在');
-        const method=(req.method||'GET').toUpperCase();
-        if(!['GET','POST','PUT'].includes(method))return fail(res,405,'不支持该方法');
-        if(isContent&&!isAllowedRequest({method,path}))return fail(res,404,'接口不存在');
-        const allowedKnowledge=(method==='GET'&&path==='/knowledge')||
-          (method==='POST'&&(path==='/knowledge'||path==='/knowledge/search'||/^\/knowledge\/[a-f0-9-]{36}\/(?:approve|enable|disable|delete)$/.test(path)));
-        if(isKnowledge&&!allowedKnowledge)return fail(res,404,'接口不存在');
-        if(isContent)plugins.requireEnabled('com.kadadesk.content-ops');
-        if(isKnowledge)plugins.requireEnabled('com.kadadesk.knowledge');
-        const body=method==='GET'?{}:await parseJson(req);
-        const result=isPlugin?await plugins.handle(method,path):isKnowledge?await knowledge.handle(method,path,body):await moments.handle(method,path,body);
-        res.writeHead(200,{'content-type':'application/json; charset=utf-8'});
-        return res.end(JSON.stringify(result));
-      }
-      if(req.method!=='GET'&&req.method!=='HEAD')return fail(res,405,'仅支持 GET');
-      let file:string;
-      if(pathname==='/' || pathname==='/index.html')file=join(dist,'index.html');
-      else if(/^\/assets\/[a-zA-Z0-9_.-]+$/.test(pathname)) file=join(dist,pathname);
-      else return fail(res,404,'文件不存在');
-      const data=await readFile(file);
-      if(pathname==='/'||pathname==='/index.html') {
-        const html=data.toString('utf8').replace('</head>',`<meta name="api-token" content="${token}"></head>`);
-        res.writeHead(200,{'content-type':'text/html; charset=utf-8'});
-        return res.end(req.method==='HEAD'?'':html);
-      }
-      res.writeHead(200,{'content-type':mime(file)});
-      return res.end(req.method==='HEAD'?'':data);
-    }catch(e) {
-      const code=e instanceof ApiError?e.status:500;
-      if (code===500)console.error('[local-workspace]',(e as Error).message);
-      if (!res.headersSent)fail(res,code,code===500?'本地处理失败，请查看终端日志':(e as Error).message);
-      else res.end();
+      const text = Buffer.concat(chunks).toString('utf8');
+      resolve(text ? JSON.parse(text) : undefined);
+    } catch {
+      reject(new ApiError(400, 'JSON 格式无效'));
     }
   });
-  await new Promise<void>((accept,reject)=>{
-    server.once('error',reject);
-    server.listen(options.port??0,'127.0.0.1',()=>{server.off('error',reject);accept();});
+  req.on('error', reject);
+});
+
+const mime = new Map([
+  ['.html', 'text/html; charset=utf-8'],
+  ['.js', 'text/javascript; charset=utf-8'],
+  ['.css', 'text/css; charset=utf-8'],
+  ['.svg', 'image/svg+xml'],
+  ['.png', 'image/png'],
+  ['.json', 'application/json; charset=utf-8']
+]);
+
+export async function createHttpServer(options: HttpOptions = {}): Promise<Server> {
+  const host = options.host ?? '127.0.0.1';
+  const port = options.port ?? Number(process.env.FLOWDESK_PORT ?? 4318);
+  const root = options.root ?? process.cwd();
+  const service = await createService({ dataDir: options.dataDir ?? process.env.FLOWDESK_DATA_DIR ?? join(root, '.flowdesk-data') });
+  const sessions = new Set<string>();
+
+  return createServer(async (req, res) => {
+    const method = req.method ?? 'GET';
+    const url = new URL(req.url ?? '/', `http://${host}:${port}`);
+    const head = method === 'HEAD';
+    const localOrigin = `http://${host}:${req.socket.localPort}`;
+    if ((req.headers.origin && req.headers.origin !== localOrigin && req.headers.origin !== 'http://127.0.0.1:5178') || (req.headers.host && req.headers.host !== `${host}:${req.socket.localPort}`)) {
+      return json(res, 403, { error: '仅允许本地同源访问' }, head);
+    }
+    try {
+      if (url.pathname === '/health' && (method === 'GET' || head)) {
+        return json(res, 200, { status: 'ok', ok: true, version: '0.3.0', app: 'KADAdesk Community' }, head);
+      }
+      if (url.pathname === '/api/bootstrap' && (method === 'GET' || head)) {
+        const token = crypto.randomUUID();
+        sessions.add(token);
+        res.setHeader('Set-Cookie', `flowdesk_session=${token}; HttpOnly; SameSite=Strict; Path=/`);
+        return json(res, 200, { ok: true }, head);
+      }
+      if (url.pathname === '/downloads/windows' && (method === 'GET' || head)) {
+        const file = join(root, 'release', 'kadadesk-win32-x64.zip');
+        if (!existsSync(file)) return json(res, 404, { error: 'Windows 安装包尚未生成' }, head);
+        const info = await stat(file);
+        res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Length': info.size, 'Content-Disposition': 'attachment; filename="kadadesk-win32-x64.zip"' });
+        return head ? res.end() : createReadStream(file).pipe(res);
+      }
+      if (url.pathname.startsWith('/api/')) {
+        if (!req.headers.cookie?.match(/flowdesk_session=([^;]+)/)?.[1] || !sessions.has(req.headers.cookie.match(/flowdesk_session=([^;]+)/)![1])) {
+          return json(res, 401, { error: '请先建立本地会话' }, head);
+        }
+        const body = ['POST', 'PUT', 'DELETE'].includes(method) ? await readBody(req) : undefined;
+        const result = await service.request({ method: head ? 'GET' : method, path: url.pathname.slice(4) || '/', body });
+        return json(res, 200, result, head);
+      }
+      const dist = join(root, 'dist');
+      const requested = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname.slice(1));
+      let file = normalize(join(dist, requested));
+      if (!existsSync(file)) file = normalize(join(root, requested));
+      const fromDist = relative(dist, file);
+      const fromRoot = relative(root, file);
+      const safe = (!fromDist.startsWith('..') && !fromDist.includes(':')) || (!fromRoot.startsWith('..') && !fromRoot.includes(':'));
+      if (!safe || !existsSync(file)) {
+        return json(res, 404, { error: '页面不存在' }, head);
+      }
+      res.writeHead(200, { 'Content-Type': mime.get(extname(file).toLowerCase()) ?? 'application/octet-stream' });
+      if (head) return res.end();
+      createReadStream(file).pipe(res);
+    } catch (error) {
+      const status = error instanceof ApiError ? error.status : 500;
+      return json(res, status, { error: error instanceof ApiError ? error.message : '本地服务错误' }, head);
+    }
   });
-  const address=server.address();
-  if(!address||typeof address==='string')throw Error('未获得本机端口');
-  activePort=address.port;
-  return {url:`http://127.0.0.1:${activePort}`,port:activePort,server,token,close:()=>new Promise<void>((ok,bad)=>server.close(err=>err?bad(err):ok()))};
 }
-if(process.argv[1] && resolve(process.argv[1])===resolve(fileURLToPath(import.meta.url))) {
-  const dataDir=process.env.KADADESK_COMMUNITY_DATA_DIR || join(homedir(),'.kadadesk-community');
-  const app=await createLocalServer({dataDir,port:process.env.PORT?Number(process.env.PORT):0});
-  console.log('KADAdesk Community · 可扩展 AI 工作台（内置示例插件）');
-  console.log('Open in your browser: '+app.url);
-  console.log('Data stored locally in: '+dataDir);
-  console.log('No social platform account is logged in or posted to automatically.');
-  const end=async()=>{await app.close();process.exit(0);};
-  process.once('SIGINT',()=>void end());process.once('SIGTERM',()=>void end());
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const port = Number(process.env.FLOWDESK_PORT ?? 4318);
+  const server = await createHttpServer({ port });
+  server.listen(port, '127.0.0.1', () => console.log(`KADAdesk local service: http://127.0.0.1:${port}`));
 }
