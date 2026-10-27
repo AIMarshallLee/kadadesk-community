@@ -25,6 +25,7 @@
     "src/**/*.tsx",
     "server/**/*.ts",
     "sdk/**/*.ts",
+    "examples/**/*.ts",
     "vite.config.ts"
   ]
 }
