@@ -74,7 +74,7 @@ test('interrupted runs are never automatically retried after restart', async () 
       tasks.start('knowledge-to-content', { title: '', query: '知识' }),
       /标题|草稿/,
     );
-    await assert.rejects(tasks.handle('POST', '/tasks/unknown', {}), /不存在/);
+    assert.throws(() => tasks.handle('POST', '/tasks/unknown', {}), /不存在/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
