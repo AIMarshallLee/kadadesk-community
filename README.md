@@ -6,6 +6,10 @@
 
 [发布与迁移政策](docs/PUBLICATION-POLICY.md) · [整体迁移进度](docs/FULL-SOURCE-MIGRATION.md) · [插件架构](docs/PLUGIN-ARCHITECTURE-V1.md) · [个人许可](LICENSE) · [参与共创](CONTRIBUTING.md)
 
+## AI 经营工作台架构
+
+[查看 V1 架构和社区共创路线](docs/AI-BUSINESS-WORKSPACE-ARCHITECTURE-V1.md)。开发分支首先接入可信本地任务：**已审核知识 → 待人工审核的内容草稿**。它不调用大模型、不连接第三方账号，也不自动发布；正式能力与验收状态以合并后的主分支为准。
+
 ## 工作台目前有什么？
 
 | 可用模块 | 实际能做的事 | 暂时不支持 |
