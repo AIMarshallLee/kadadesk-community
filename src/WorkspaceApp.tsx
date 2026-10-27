@@ -7,7 +7,13 @@ type Plugin={
  id:string;name:string;version:string;description:string;
  bundled:boolean;downloadable:boolean;permissions:string[];enabled:boolean;
 };
-type Page='home'|'plugins'|'content'|'knowledge';
+type Page='home'|'plugins'|'content'|'knowledge'|'workflows';
+type Task={
+ id:string;title:string;status:'running'|'completed'|'blocked'|'interrupted';
+ createdAt:string;error?:string;
+ result?:{contentId:string;sourceIds:string[];manualReviewRequired:true;automaticExternalSend:false};
+};
+type TaskList={tasks:Task[];automaticExternalSend:false};
 const pageFor=(id:string):Page=>id==='com.kadadesk.knowledge'?'knowledge':'content';
 export default function WorkspaceApp(){
  const [plugins,setPlugins]=useState<Plugin[]>([]);
@@ -15,6 +21,26 @@ export default function WorkspaceApp(){
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [loading,setLoading]=useState(true);
+ const [taskTitle,setTaskTitle]=useState('');
+ const [taskQuery,setTaskQuery]=useState('');
+ const [tasks,setTasks]=useState<Task[]>([]);
+ const refreshTasks=async()=>{
+  const state=await api<TaskList>('GET','/tasks');
+  setTasks(state.tasks);
+ };
+ const openWorkflows=()=>{
+  setPage('workflows');
+  void refreshTasks().catch(e=>setError((e as Error).message));
+ };
+ const startWorkflow=async()=>{
+  setBusy(true);setError('');
+  try {
+   const task=await api<Task>('POST','/tasks/knowledge-to-content',{title:taskTitle,query:taskQuery});
+   await refreshTasks();
+   if(task.status!=='completed')setError(task.error||'任务未完成，请查看任务记录');
+  }catch(e){setError((e as Error).message);}
+  finally{setBusy(false);}
+ };
  const refresh=async()=>{
   const data=await api<Plugin[]>('GET','/plugins');
   setPlugins(data);setLoading(false);
@@ -37,6 +63,7 @@ export default function WorkspaceApp(){
    <div className="form-row">
     <button className="btn secondary" aria-pressed={page==='home'} onClick={()=>setPage('home')}>工作台</button>
     <button className="btn secondary" aria-pressed={page==='plugins'} onClick={()=>setPage('plugins')}>插件管理</button>
+    <button className="btn secondary" aria-pressed={page==='workflows'} onClick={openWorkflows}>任务编排</button>
     {content?.enabled&&<button className="btn secondary" aria-pressed={page==='content'} onClick={()=>setPage('content')}>内容运营</button>}
     {knowledge?.enabled&&<button className="btn secondary" aria-pressed={page==='knowledge'} onClick={()=>setPage('knowledge')}>知识库</button>}
    </div>
@@ -49,6 +76,7 @@ export default function WorkspaceApp(){
     <p>当前社区版包含内容运营和本地知识库两个可信内置模块，可按需启用或停用。AI 回复辅助、完整知识检索和第三方插件下载安装正在开发，不能把规划当作已实现功能。</p>
     <div className="form-row">
      <button className="btn primary" onClick={()=>setPage('plugins')}>查看内置模块</button>
+     <button className="btn secondary" onClick={openWorkflows}>试用跨插件任务</button>
      {content?.enabled&&<button className="btn secondary" onClick={()=>setPage('content')}>打开内容运营</button>}
      {knowledge?.enabled&&<button className="btn secondary" onClick={()=>setPage('knowledge')}>打开知识库</button>}
     </div>
@@ -66,6 +94,23 @@ export default function WorkspaceApp(){
       <button className="btn primary" disabled={busy} onClick={()=>void toggle(p)}>{p.enabled?'停用模块':'启用模块'}</button>
       {p.enabled&&<button className="btn secondary" onClick={()=>setPage(pageFor(p.id))}>打开模块</button>}
      </div>
+    </article>)}
+   </section>}
+   {page==='workflows'&&<section className="panel" style={{padding:24}}>
+    <div className="eyebrow">TRUSTED WORKFLOWS / LOCAL-ONLY</div>
+    <h1>跨插件任务 · 已审核知识 → 内容草稿</h1>
+    <p>使用基础知识库中已审核、已启用的材料，整理成一份待人工复核的内容草稿。当前不调用大模型、不连接外部平台、不会自动发布。</p>
+    <div className="form-row">
+     <label>草稿标题 <input value={taskTitle} maxLength={120} onChange={e=>setTaskTitle(e.target.value)} placeholder="例如：产品常见问题" /></label>
+     <label>知识关键词 <input value={taskQuery} maxLength={500} onChange={e=>setTaskQuery(e.target.value)} placeholder="例如：售后政策" /></label>
+     <button className="btn primary" disabled={busy||!taskTitle.trim()||!taskQuery.trim()} onClick={()=>void startWorkflow()}>{busy?'正在整理…':'生成待审核草稿'}</button>
+    </div>
+    <p className="muted">可先在知识库录入并审核测试资料。任何一个依赖插件停用后，任务将拒绝执行。</p>
+    <h2>本机任务记录</h2>
+    {tasks.length===0?<p className="muted">暂无任务</p>:tasks.map(t=><article className="panel" key={t.id} style={{padding:12,marginTop:8}}>
+     <strong>{t.title}</strong> <span className="muted">· {t.status} · {new Date(t.createdAt).toLocaleString()}</span>
+     {t.error&&<p role="alert">{t.error}</p>}
+     {t.result&&<p>草稿已保存至内容运营，需人工检查后才能使用。引用知识 {t.result.sourceIds.length} 条。<button className="btn secondary" onClick={()=>setPage('content')}>查看内容运营</button></p>}
     </article>)}
    </section>}
    {page==='content'&&(content?.enabled?
