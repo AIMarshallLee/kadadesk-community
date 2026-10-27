@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "provider": "Anthropic",
+  "source": {
+    "repository": "https://github.com/anthropics/knowledge-work-plugins",
+    "commit": "d9d8e1331e45e87e36792040e840da4fc6260b4b",
+    "path": "vendor/anthropic-knowledge-work-plugins",
+    "rootLicense": "Apache-2.0"
+  },
+  "mode": "reference-only",
+  "activation": "disabled",
+  "security": {
+    "externalActions": false,
+    "connectorsConfigured": false,
+    "skillExecution": false,
+    "upstreamFilesAudited": false
+  },
+  "prioritySkills": [
+    {
+      "id": "smb-router",
+      "path": "small-business/skills/smb-router/SKILL.md",
+      "target": "task-routing",
+      "priority": "P0"
+    },
+    {
+      "id": "seo-ai-visibility",
+      "path": "small-business/skills/seo-ai-visibility/SKILL.md",
+      "target": "seo-geo-audit",
+      "priority": "P0"
+    },
+    {
+      "id": "social-content-engine",
+      "path": "small-business/skills/social-content-engine/SKILL.md",
+      "target": "content-ops",
+      "priority": "P1"
+    },
+    {
+      "id": "speed-to-lead",
+      "path": "small-business/skills/speed-to-lead/SKILL.md",
+      "target": "crm-follow-up",
+      "priority": "P1"
+    },
+    {
+      "id": "lead-triage",
+      "path": "small-business/skills/lead-triage/SKILL.md",
+      "target": "lead-scoring",
+      "priority": "P1"
+    },
+    {
+      "id": "ticket-triage",
+      "path": "customer-support/skills/ticket-triage/SKILL.md",
+      "target": "support",
+      "priority": "P1"
+    }
+  ]
+}

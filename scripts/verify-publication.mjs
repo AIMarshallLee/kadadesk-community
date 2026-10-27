@@ -11,7 +11,16 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const tracked=execFileSync('git',['ls-files','-z'],{cwd:root}).toString('utf8').split('\0').filter(Boolean);
+const trackedEntries=execFileSync('git',['ls-files','--stage','-z'],{cwd:root}).toString('utf8').split('\0').filter(Boolean).map(line=>{
+ const m=/^(\d{6}) ([0-9a-f]{40}) (\d)\t(.+)$/.exec(line);
+ if(!m)throw new Error('Unexpected Git index entry');
+ return {mode:m[1],sha:m[2],stage:m[3],file:m[4]};
+});
+const tracked=trackedEntries.map(e=>e.file);
+// A Git submodule contains upstream code not scanned by this publication guard.
+// Only the explicitly reviewed upstream URL, path, and pinned SHA are permitted.
+const approvedSubmodules=new Map([['vendor/anthropic-knowledge-work-plugins','d9d8e1331e45e87e36792040e840da4fc6260b4b']]);
+const expectedGitmodules='[submodule "anthropic-knowledge-work-plugins"]\n\tpath = vendor/anthropic-knowledge-work-plugins\n\turl = https://github.com/anthropics/knowledge-work-plugins.git\n';
 const badName=[
  /(^|\/)\.env(?:\.|$)/i,
  /(^|\/)(?:secrets?|credentials?|customer-data|runtime-profiles?|captured-chats?|recordings)(\/|$)/i,
@@ -32,7 +41,16 @@ const patterns=[
  ['cn-mobile-number',/(?<!\d)1[3-9]\d{9}(?!\d)/],
 ];
 const issues=[];
-for (const f of tracked){
+const gitlinks=trackedEntries.filter(e=>e.mode==='160000');
+if(gitlinks.length!==1 || gitlinks.some(e=>e.stage!=='0'||approvedSubmodules.get(e.file)!==e.sha))
+ issues.push({file:'.gitmodules',rule:'unapproved-submodule'});
+if(!tracked.includes('.gitmodules'))issues.push({file:'.gitmodules',rule:'missing-gitmodules'});
+else if((await readFile(path.join(root,'.gitmodules'),'utf8'))!==expectedGitmodules)
+ issues.push({file:'.gitmodules',rule:'submodule-config-drift'});
+for (const entry of trackedEntries){
+ const f=entry.file;
+ if(entry.mode==='160000')continue; // Gitlink only: upstream files NOT scanned.
+ if(entry.mode!=='100644'&&entry.mode!=='100755')issues.push({file:f,rule:'unreviewed-mode'});
  if(f.includes('\\')||f.split('/').some(x=>x==='..'))issues.push({file:f,rule:'path-traversal'});
  if(badName.some(r=>r.test(f)))issues.push({file:f,rule:'forbidden-path'});
  const file=await readFile(path.join(root,f));
@@ -44,11 +62,11 @@ for (const f of tracked){
  // Any match requires manual remediation; do not print matched secret content.
  for(const [label,rx] of patterns)if(rx.test(s))issues.push({file:f,rule:label});
 }
-const summary={trackedFiles:tracked.length,issues:issues.length,failedFiles:[...new Set(issues.map(x=>x.file))].length};
+const summary={trackedFiles:tracked.length,externalSubmodules:gitlinks.length,upstreamContentScanned:false,issues:issues.length,failedFiles:[...new Set(issues.map(x=>x.file))].length};
 process.stdout.write(JSON.stringify(summary)+'\n');
 if(issues.length){
  for(const x of issues)process.stderr.write('BLOCK '+x.rule+' in '+x.file+'\n');
  process.stderr.write('STOP: never bypass security guard to force-publish; review and sanitize candidate content.\n');
  process.exit(1);
 }
-process.stdout.write('PASS: tracked public source has no matched high-risk paths / secret patterns. Manual license and platform review still required.\n');
+process.stdout.write('PASS: tracked public source has no matched high-risk paths / secret patterns. Pinned submodule metadata validated only; upstream content NOT scanned. Manual license, code, and platform review still required.\n');
