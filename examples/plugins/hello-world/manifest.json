@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "com.example.hello-world",
+  "name": "Hello World 示例插件",
+  "version": "0.1.0",
+  "minHostVersion": "0.2.0",
+  "platforms": ["windows", "macos", "server"],
+  "permissions": ["workspace:hello-world.read"],
+  "dependencies": [],
+  "uiEntry": "dist/ui.js",
+  "runtimeEntry": "dist/server.js",
+  "publisher": "example-publisher",
+  "sha256": "949306f6242b7f9f6869d6402ad8f33691e120a3a72186dac40bb6aedda974ec"
+}
