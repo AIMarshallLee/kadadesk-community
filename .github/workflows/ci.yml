@@ -22,4 +22,5 @@ jobs:
       - run: node scripts/verify-publication.mjs
       - run: npm ci
       - run: npm test
+      - run: npm run build
       - run: npm run smoke
