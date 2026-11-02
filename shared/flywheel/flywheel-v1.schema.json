@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.com/schemas/flywheel-v1.schema.json",
+  "$id": "https://kunlungrowth.cn/schemas/flywheel-v1.schema.json",
   "title": "增长飞轮事件 flywheel.v1",
   "description": "四飞轮统一事件格式。权威说明见同目录《00-飞轮数据底座-统一接口规范-V1.0.md》。未知字段允许（向前兼容），未知事件类型允许但中心不统计。",
   "type": "object",

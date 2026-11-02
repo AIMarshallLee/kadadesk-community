@@ -1,9 +1,9 @@
 {
   "id": "flywheel-connect",
   "name": "连接增长飞轮",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "咔哒团队",
-  "description": "连接增长飞轮数据底座，双向打通私域接待、客户画像与内容归因，不发聊天原文",
+  "description": "把接待里发生的事（进线、多快回复、转人工、客户画像、每日稳定性）发到你的增长飞轮事件中心，并收回别处来的客户、扣词来源和销售进展。不发聊天原文，默认关闭。",
   "kind": "automation",
   "permissions": [
     "network.outbound",

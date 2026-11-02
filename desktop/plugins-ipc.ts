@@ -19,10 +19,11 @@ export async function registerPlugins(options: {
   request(req: ApiRequest): Promise<unknown>;
   journal?: PluginManagerDeps['journal'];
   alertAdmin?: PluginManagerDeps['alertAdmin'];
+  onChange?: PluginManagerDeps['onChange'];
 }) {
   const notified = new Map<string, number>();
   const manager = await createPluginManager({
-    directory: options.directory, request: options.request, journal: options.journal, alertAdmin: options.alertAdmin,
+    directory: options.directory, request: options.request, journal: options.journal, alertAdmin: options.alertAdmin, onChange: options.onChange,
     // Same rule as reception alerts: one system notification per title and text within a minute.
     notify: (title, body) => { const key = title + body, t = Date.now(); if (t - (notified.get(key) ?? 0) < 60000) return; notified.set(key, t); if (notified.size > 200) notified.clear(); showNotice({ key: 'plugins', title, body, open: true, cooldownMs: 0 }); },
     log: (event, detail) => recordDiag(event, detail),

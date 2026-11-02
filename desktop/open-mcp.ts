@@ -1,3 +1,4 @@
+import { maskOutboundText } from '../shared/flywheel/mask';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { chmod, readFile, rename, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -50,10 +51,12 @@ interface Deps {
   settings?: OpenMcpSettingsDeps;
   /** The owner's on-screen confirmation (Touch ID or a native dialog), as for app operation. */
   confirmOwner?(reason: string): Promise<void>;
-  /** 客户档案查询（用于 customers_get） */
-  customers?(): Promise<Array<{ id: string; name: string; flywheelContactId?: string; facts?: Array<{ field: string; value: string; sensitive?: boolean }>; salesStage?: Record<string, unknown> }>>;
-  /** 接待事件摘要查询（用于 reception_events_since） */
-  receptionEvents?(since: string, limit?: number): Promise<Array<{ type: string; at: string; detail?: string; latencySeconds?: number; reason?: string }>>;
+  /** 客户档案 (customers_get, 连接增长飞轮): read only; this module returns only the non-identity, non-sensitive fields. */
+  customers?(): Promise<Array<{ id: string; flywheelContactId?: string; tags?: string[]; facts?: Array<{ field: string; value: string; source?: string; sensitive?: boolean }>; salesStage?: Record<string, unknown> }>>;
+  /** Event summaries (reception_events_since): types, times and codes, never names, identities or text. */
+  receptionEvents?(since: string, limit?: number): Promise<unknown[]>;
+  /** 「连接增长飞轮」插件是否开启；关闭时不列出也不响应 customers_get / reception_events_since。未提供时视为开启。 */
+  flywheelEnabled?(): boolean;
 }
 
 const PROTOCOL = '2025-03-26';
@@ -65,8 +68,8 @@ const TOOLS = [
   { name: 'knowledge_add', title: '新增待审核知识', description: '把一条问答加入咔哒知识库的待审核队列；需要在咔哒里人工审核后才会被使用。', inputSchema: { type: 'object', properties: { title: { type: 'string' }, question: { type: 'string', description: '客户会怎么问' }, content: { type: 'string', description: '对客户说的答案' }, tags: { type: 'array', items: { type: 'string' } } }, required: ['title', 'content'] }, annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } },
 ] as const;
 const FLYWHEEL_TOOLS = [
-  { name: 'customers_get', title: '查询客户档案摘要', description: '按客户档案 ID 或飞轮联系人 ID 查询档案摘要（称呼、行业、城市、业务阶段与意向，不含敏感事实，不含聊天记录）。只读。', inputSchema: { type: 'object', properties: { id: { type: 'string', description: '咔哒本地客户档案 ID' }, flywheelContactId: { type: 'string', description: '增长飞轮联系人 ID' } } }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } },
-  { name: 'reception_events_since', title: '查询最近接待事件摘要', description: '查询指定时间（ISO 8601）以来本机发生的接待事件摘要（进线、首答延迟、转人工、画像更新，不含原话）。只读。', inputSchema: { type: 'object', properties: { since: { type: 'string', description: '起始时间（ISO 8601），例如 2026-11-02T00:00:00Z' }, limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }, required: ['since'] }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } },
+  { name: 'customers_get', title: '查询客户档案摘要', description: '按客户档案 ID 或飞轮联系人 ID 查询档案摘要（行业、城市、来源、业务阶段、意向、需求、预算、时间、销售进展）。不含名字、电话、即时通讯号等身份信息，不含敏感事实、原话和聊天记录。只读；需要「连接增长飞轮」已打开，且这个客户端有「可以修改设置」权限。', inputSchema: { type: 'object', properties: { id: { type: 'string', description: '咔哒本地客户档案 ID' }, flywheelContactId: { type: 'string', description: '增长飞轮联系人 ID' } } }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } },
+  { name: 'reception_events_since', title: '查询最近接待事件摘要', description: '查询指定时间（ISO 8601）以来「连接增长飞轮」记下的接待事件摘要（类型、时间、渠道、首次回复用时、转人工原因、线索来源、变化的画像字段名）。不含名字、身份信息、字段内容和原话。只读；权限同 customers_get。', inputSchema: { type: 'object', properties: { since: { type: 'string', description: '起始时间（ISO 8601），例如 2026-11-02T00:00:00Z' }, limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }, required: ['since'] }, annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false } },
 ] as const;
 const TOOL_NAMES: readonly string[] = [...TOOLS.map(tool => tool.name), ...FLYWHEEL_TOOLS.map(tool => tool.name), ...SETTINGS_TOOL_NAMES];
 const APP_TOOL_NAMES: readonly string[] = ['app_task_request', 'app_task_status', 'app_task_cancel'];
@@ -139,7 +142,10 @@ export function createOpenMcp(deps: Deps) {
   };
   // Settings tools: reads for every caller, writes listed only for a client with 「可以修改设置」 (calls are refused anyway).
   const settingsList = (caller: OpenMcpCaller) => settingsTools ? [...settingsTools.readTools(), ...(scopes(caller.id)?.configWrite ? settingsTools.writeTools() : [])] : [];
-  const flywheelList = () => [
+  const flywheelOn = () => deps.flywheelEnabled ? deps.flywheelEnabled() : true;
+  // Customer data: only a named client the owner gave 「可以修改设置」 (the existing per-client trust level), never the shared default key.
+  const flywheelRefusal = (caller: OpenMcpCaller) => !flywheelOn() ? '「连接增长飞轮」插件没有打开' : !scopes(caller.id)?.configWrite ? `「${caller.label}」没有读取客户档案摘要的权限：请在咔哒「开放」页为它勾选「可以修改设置」` : undefined;
+  const flywheelList = (caller: OpenMcpCaller) => flywheelRefusal(caller) ? [] : [
     ...(deps.customers ? [FLYWHEEL_TOOLS[0]] : []),
     ...(deps.receptionEvents ? [FLYWHEEL_TOOLS[1]] : []),
   ];
@@ -186,32 +192,27 @@ export function createOpenMcp(deps: Deps) {
         return text({ id: created.id, status: 'pending_review', note: '已加入待审核队列，在咔哒「知识」里审核后才会启用。' });
       }
       case 'customers_get': {
+        const refusal = flywheelRefusal(caller); if (refusal) return failed(refusal);
         if (!deps.customers) return failed('客户档案服务未就绪');
         const id = typeof args.id === 'string' ? args.id.trim() : '';
         const fcId = typeof args.flywheelContactId === 'string' ? args.flywheelContactId.trim() : '';
         if (!id && !fcId) return failed('请提供 id 或 flywheelContactId');
-        const all = await deps.customers();
-        const found = all.find(c => (id && c.id === id) || (fcId && c.flywheelContactId === fcId));
+        const found = (await deps.customers()).find(c => (id && c.id === id) || (fcId && c.flywheelContactId === fcId));
         if (!found) return failed('未找到该客户档案');
-        const safeFacts = (found.facts || []).filter(f => !f.sensitive).map(f => ({ field: f.field, value: f.value }));
-        return text({
-          id: found.id,
-          name: found.name,
-          flywheelContactId: found.flywheelContactId,
-          facts: safeFacts,
-          salesStage: found.salesStage,
-        });
+        // Business facts only: no name, phone, ids, email, sensitive facts or quotes; values masked once more.
+        const allowed = (field: string) => ['industry', 'companyType', 'scale', 'city', 'interests', 'source'].includes(field) || /^biz\.[^.]+\.(stage|intent|needs|budget|timeline|decisionMaker)$/.test(field);
+        const latest = new Map<string, string>();
+        for (const f of found.facts ?? []) if (!f.sensitive && allowed(f.field)) latest.set(f.field, maskOutboundText(f.value).slice(0, 200));
+        return text({ id: found.id, ...(found.flywheelContactId ? { flywheelContactId: found.flywheelContactId } : {}), ...(found.salesStage ? { salesStage: found.salesStage } : {}), untouched: (found.tags ?? []).includes('未接触'), facts: Object.fromEntries(latest) });
       }
       case 'reception_events_since': {
-        if (!deps.receptionEvents) return failed('接待事件服务未就绪');
+        const refusal = flywheelRefusal(caller); if (refusal) return failed(refusal);
+        if (!deps.receptionEvents) return failed('接待事件查询服务未就绪');
         const since = typeof args.since === 'string' ? args.since.trim() : '';
-        if (!since) return failed('since 参数不能为空');
+        if (!since || !Number.isFinite(Date.parse(since))) return failed('since 必须是合法的 ISO 8601 时间');
         const limit = Math.min(100, Math.max(1, Number(args.limit ?? 20) || 20));
         const events = await deps.receptionEvents(since, limit);
-        return text({
-          since,
-          events,
-        });
+        return text({ since, count: events.length, events });
       }
       default: {
         const result = SETTINGS_TOOL_NAMES.includes(name) ? await settingsTools?.call(name, args, caller) : undefined;
@@ -229,7 +230,7 @@ export function createOpenMcp(deps: Deps) {
       switch (method) {
         case 'initialize': return reply({ protocolVersion: PROTOCOL, capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'kadadesk', title: '咔哒工作台', version: '1.0.0' }, instructions: `咔哒工作台：检索已审核的业务知识、生成客服回复草稿、查看自动接待，暂停或解除暂停自动回复。工具不能指定发送对象或内容；解除暂停后，正在运行的接待会按咔哒保存的配置自动回复客户。${settingsTools ? 'settings_get / models_get / knowledge_list 读取全部设置（密钥只显示是否已保存）。' : ''}${settingsTools && scopes(caller.id)?.configWrite ? '你可以修改设置：settings_update、models_set、models_test、knowledge_review/update/delete/import，reception_control start/stop；换模型或密钥、删除或启用知识、放宽审核、改固定话术和开始接待需要主人在电脑上确认，所有修改都会记在咔哒「开放」页。' : ''}${appRefusal(caller) ? '' : '应用操作已开启：app_task_request 只排队，主人批准后才执行，用 app_task_status 取结果。'}` });
         case 'ping': return reply({});
-        case 'tools/list': return reply({ tools: [...[...TOOLS, ...flywheelList(), ...settingsList(caller)].filter(tool => !settings.disabledTools.includes(tool.name)), ...(appRefusal(caller) ? [] : appTools(deps.appTasks!.apps()))] });
+        case 'tools/list': return reply({ tools: [...[...TOOLS, ...flywheelList(caller), ...settingsList(caller)].filter(tool => !settings.disabledTools.includes(tool.name)), ...(appRefusal(caller) ? [] : appTools(deps.appTasks!.apps()))] });
         case 'tools/call': {
           const name = String(params.name ?? ''); const args = (params.arguments ?? {}) as Record<string, unknown>;
           calls++; lastCallAt = new Date().toISOString(); usage.set(caller.id, { calls: (usage.get(caller.id)?.calls ?? 0) + 1, lastCallAt });

@@ -43,6 +43,8 @@ export interface CustomerProfile {
   leadKey?: string;
   /** 增长飞轮统一联系人标识 */
   flywheelContactId?: string;
+  /** Other hub contact ids known to be this person (merged in the hub, or a merged pre-created profile's id). */
+  flywheelAltIds?: string[];
   /** 飞轮同步回写的销售阶段与进展 */
   salesStage?: {
     stage?: string;
@@ -76,6 +78,7 @@ export const BASIC_FIELDS: FieldDef[] = [
   { key: 'city', label: '城市' },
   { key: 'phone', label: '电话' },
   { key: 'interests', label: '偏好/兴趣' },
+  { key: 'source', label: '来源', hint: '从哪知道你的，例如：抖音、朋友介绍' },
   { key: 'gender', label: '性别', sensitive: true, hint: '只记客户自己说的' },
   { key: 'age', label: '年龄', sensitive: true, hint: '只记客户自己说的' },
   { key: 'health', label: '身体情况', sensitive: true, hint: '只记客户自己说的' },
@@ -95,6 +98,16 @@ export const BIZ_FIELDS: FieldDef[] = [
   { key: 'timeline', label: '打算什么时候买' },
   { key: 'decisionMaker', label: '谁拍板' },
 ];
+/** Strong identities from other systems (增长飞轮) or official lanes; matched on, never shown to the reply model. */
+export const IDENTITY_FIELDS: FieldDef[] = [
+  { key: 'wechatId', label: '即时通讯号' },
+  { key: 'wecomId', label: '企业办公软件外部联系人 ID' },
+  { key: 'platformUid', label: '平台用户 ID' },
+  { key: 'storeId', label: '门店平台编号' },
+  { key: 'email', label: '邮箱' },
+];
+/** 增长飞轮 sales stages (spec §5.3) in plain words. */
+export const SALES_STAGE_LABEL: Record<string, string> = { NEW: '新线索', QUALIFIED: '有效商机', DISCOVERY: '需求沟通', PROPOSAL: '报价中', NEGOTIATION: '商务谈判', WON: '已成交', LOST: '已丢单', NURTURE: '长期培育' };
 export const SENSITIVE_FIELDS = new Set(['gender', 'age', 'health']);
 /** Never written from a chat at all, whatever the customer said: income, religion, politics, ethnicity, sexuality. */
 const NEVER_FROM_CHAT = /收入|工资|月薪|年薪|存款|负债|贷款|欠款|宗教|信仰|信佛|佛教|基督|天主|伊斯兰|穆斯林|清真|党员|政治|政党|民族|汉族|回族|藏族|维吾尔|少数民族|性取向|同性恋/u;
@@ -104,13 +117,13 @@ const HEALTH_WORDS = /病|怀孕|孕期|残疾|抑郁|焦虑症|癌|糖尿病|�
 export const bizField = (line: string, key: string) => `biz.${line}.${key}`;
 export const customFieldKey = (line: string, id: string) => `biz.${line}.custom.${id}`;
 export function fieldLabel(field: string, lines: BusinessLine[]): string {
-  const basic = [...BASIC_FIELDS, ...COMM_FIELDS].find(f => f.key === field); if (basic) return basic.label;
+  const basic = [...BASIC_FIELDS, ...COMM_FIELDS, ...IDENTITY_FIELDS].find(f => f.key === field); if (basic) return basic.label;
   const m = /^biz\.([^.]+)\.(.+)$/.exec(field); if (!m) return field;
   const line = lines.find(l => l.id === m[1]); const name = line?.name ?? '已删除的业务';
   if (m[2].startsWith('custom.')) return `${name}·${line?.fields.find(f => f.id === m[2].slice(7))?.label ?? '自定义'}`;
   return `${name}·${BIZ_FIELDS.find(f => f.key === m[2])?.label ?? m[2]}`;
 }
-const validField = (field: string) => [...BASIC_FIELDS, ...COMM_FIELDS].some(f => f.key === field) || /^biz\.[a-z0-9_-]{1,40}\.(stage|intent|needs|budget|timeline|decisionMaker|custom\.[a-z0-9_-]{1,40})$/.test(field);
+const validField = (field: string) => [...BASIC_FIELDS, ...COMM_FIELDS, ...IDENTITY_FIELDS].some(f => f.key === field) || /^biz\.[a-z0-9_-]{1,40}\.(stage|intent|needs|budget|timeline|decisionMaker|custom\.[a-z0-9_-]{1,40})$/.test(field);
 
 /** Names compare ignoring width, case, spacing and emoji (the chat list may draw an emoji differently). */
 export const nameKey = (name: string) => name.normalize('NFKC').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu, '').replace(/\s+/g, '').toLowerCase();
@@ -127,7 +140,8 @@ function cleanFact(raw: unknown): CustomerFact | undefined {
   const f = raw as CustomerFact; if (!f || typeof f !== 'object') return undefined;
   const field = typeof f.field === 'string' ? f.field : ''; const value = clip(f.value, VALUE_MAX); const at = iso(f.at);
   if (!validField(field) || !value || !at || !['customer', 'owner', 'import', 'inferred'].includes(f.source)) return undefined;
-  if (secretIn(value) || (f.quote && secretIn(f.quote))) return undefined;
+  // Identity ids are long random-looking strings; they are ids, not secrets.
+  if ((!IDENTITY_FIELDS.some(d => d.key === field) && secretIn(value)) || (f.quote && secretIn(f.quote))) return undefined;
   const sensitive = SENSITIVE_FIELDS.has(field) || f.sensitive === true;
   if (sensitive && f.source === 'inferred') return undefined;
   return { field, value, source: f.source, ...(f.quote ? { quote: clip(f.quote, QUOTE_MAX) } : {}), at, ...(typeof f.jobId === 'string' && f.jobId.length <= 100 ? { jobId: f.jobId } : {}), ...(sensitive ? { sensitive: true } : {}) };
@@ -151,12 +165,22 @@ export function cleanProfile(raw: unknown): CustomerProfile | undefined {
   const facts = (Array.isArray(p.facts) ? p.facts : []).map(cleanFact).filter((f): f is CustomerFact => !!f);
   const notes = (Array.isArray(p.notes) ? p.notes : []).map(n => ({ text: clip((n as CustomerNote)?.text, 500), at: iso((n as CustomerNote)?.at) ?? createdAt, source: (['customer', 'owner', 'import', 'inferred'].includes((n as CustomerNote)?.source) ? (n as CustomerNote).source : 'owner') as FactSource })).filter(n => n.text && !secretIn(n.text)).slice(-MAX_NOTES);
   const next = p.nextFollowUp && iso(p.nextFollowUp.at) ? { at: iso(p.nextFollowUp.at)!, reason: clip(p.nextFollowUp.reason, 100), source: (['customer', 'owner', 'import', 'inferred'].includes(p.nextFollowUp.source) ? p.nextFollowUp.source : 'owner') as FactSource } : undefined;
+  const flywheelContactId = typeof p.flywheelContactId === 'string' && p.flywheelContactId.length <= 120 ? p.flywheelContactId : undefined;
+  const flywheelAltIds = Array.isArray(p.flywheelAltIds) ? [...new Set(p.flywheelAltIds.filter(x => typeof x === 'string' && x && x.length <= 120 && x !== flywheelContactId))].slice(0, 8) : [];
+  const salesStage = p.salesStage && typeof p.salesStage === 'object' ? {
+    ...(typeof p.salesStage.stage === 'string' ? { stage: clip(p.salesStage.stage, 60) } : {}),
+    ...(typeof p.salesStage.stageName === 'string' ? { stageName: clip(p.salesStage.stageName, 60) } : {}),
+    ...(['open', 'won', 'lost'].includes(p.salesStage.dealStatus as string) ? { dealStatus: p.salesStage.dealStatus as 'open' | 'won' | 'lost' } : {}),
+    ...(iso(p.salesStage.nextFollowupAt) ? { nextFollowupAt: iso(p.salesStage.nextFollowupAt) } : {}),
+    ...(iso(p.salesStage.updatedAt) ? { updatedAt: iso(p.salesStage.updatedAt) } : {}),
+  } : undefined;
   return { id: p.id, channel: p.channel === 'phone' ? 'phone' : 'desk', name, aliases: (Array.isArray(p.aliases) ? p.aliases : []).map(a => clip(a, 120)).filter(Boolean).slice(0, 10),
     facts: trimFacts(facts), tags: cleanTags(p.tags), notes, purchases: (Array.isArray(p.purchases) ? p.purchases : []).map(cleanPurchase).filter((x): x is CustomerPurchase => !!x).slice(-MAX_PURCHASES),
     ...(next ? { nextFollowUp: next } : {}), ...(iso(p.lastFollowUpAt) ? { lastFollowUpAt: iso(p.lastFollowUpAt) } : {}), ...(iso(p.lastContactAt) ? { lastContactAt: iso(p.lastContactAt) } : {}),
     ...(typeof p.leadKey === 'string' && p.leadKey.length <= 200 ? { leadKey: p.leadKey } : {}),
-    ...(typeof p.flywheelContactId === 'string' && p.flywheelContactId.length <= 120 ? { flywheelContactId: p.flywheelContactId } : {}),
-    ...(p.salesStage && typeof p.salesStage === 'object' ? { salesStage: { ...p.salesStage } } : {}),
+    ...(flywheelContactId ? { flywheelContactId } : {}),
+    ...(flywheelAltIds.length ? { flywheelAltIds } : {}),
+    ...(salesStage && Object.keys(salesStage).length ? { salesStage } : {}),
     createdAt, updatedAt: iso(p.updatedAt) ?? createdAt };
 }
 export function cleanLine(raw: unknown, taken = new Set<string>()): BusinessLine | undefined {
@@ -310,6 +334,16 @@ const quoteOk = (f: CustomerFact | undefined) => !!f && !f.sensitive;
 export function replyContext(profile: CustomerProfile | undefined, lines: BusinessLine[], max = 420): string {
   if (!profile) return '';
   const parts: string[] = [];
+  if (profile.salesStage) {
+    if (profile.salesStage.dealStatus === 'won') {
+      parts.push('已成交客户（按老客户口吻接待）');
+    } else if (profile.salesStage.dealStatus === 'lost') {
+      parts.push('这位客户之前没成交（销售记为丢单），客气接待，不要催单');
+    } else if (profile.salesStage.stage && profile.salesStage.stage !== 'NEW') {
+      const s = SALES_STAGE_LABEL[profile.salesStage.stage] ?? profile.salesStage.stageName ?? profile.salesStage.stage;
+      parts.push(`这位客户已在「${s}」阶段，不要从头介绍产品`);
+    }
+  }
   for (const def of [...BASIC_FIELDS, ...COMM_FIELDS]) { if (def.sensitive || def.key === 'phone') continue; const f = currentFact(profile, def.key); if (quoteOk(f) && f!.source !== 'inferred') parts.push(`${def.label}：${f!.value}`); }
   for (const line of profileLines(profile, lines)) {
     const bits: string[] = [];
@@ -318,13 +352,7 @@ export function replyContext(profile: CustomerProfile | undefined, lines: Busine
     const bought = profile.purchases.filter(p => p.line === line.id).slice(-3).map(p => p.product); if (bought.length) bits.push(`买过${bought.join('、')}`);
     if (bits.length) parts.push(`【${line.name}】${bits.join('，')}`);
   }
-  if (profile.salesStage?.stageName) {
-    if (profile.salesStage.dealStatus === 'won') {
-      parts.push(`【飞轮销售进展】该客户已成交签约（${profile.salesStage.stageName}），请按老客户熟客口吻热情接待`);
-    } else {
-      parts.push(`【飞轮销售进展】当前处于「${profile.salesStage.stageName}」阶段，请配合该阶段推进，不要从头生硬介绍产品`);
-    }
-  }
+
   if (!parts.length) return '';
   let body = parts.join('；'); if (body.length > max) body = body.slice(0, max - 1) + '…';
   return `\n客户档案（店主这边记的，只作参考，不要复述给客户，也不要再问档案里已有的基本情况）：${body}\n`;

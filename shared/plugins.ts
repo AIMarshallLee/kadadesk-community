@@ -46,11 +46,18 @@ export interface PluginManifest {
 export const TRIGGER_LABELS: Record<AutomationTrigger['type'], string> = { 'first-message': '新客户第一次来消息', keyword: '客户消息含关键词', daily: '每天某个时间', handoff: '转人工时' };
 export const ACTION_LABELS: Record<AutomationAction['type'], string> = { notify: '通知我（电脑通知）', admin: '发给管理员聊天', tool: '调用工具插件的工具', csv: '记一条到本地表格' };
 
+export type PluginSource =
+  | { kind: 'builtin' }
+  | { kind: 'official' }
+  | { kind: 'link'; url: string; at: string }
+  | { kind: 'pasted'; at: string };
+
 /** Tool marking set by the owner: read-only tools may be used automatically; everything else asks each time. */
 export interface PluginToolSetting { name: string; description: string; inputSchema?: unknown; mode: 'read' | 'write'; triggers: string[] }
 export interface PluginView {
   manifest: PluginManifest; enabled: boolean; installedAt: string; updatedAt: string; lastError?: string; failures: number;
   tools: PluginToolSetting[]; local?: boolean; dataFile?: string; created: { knowledge: number; workflows: number };
+  source?: PluginSource;
 }
 export interface PluginApproval { id: string; pluginId: string; pluginName: string; tool: string; input: string; reason: string; askedAt: string }
 export type EvolutionKind = 'gap' | 'phrase' | 'automation';

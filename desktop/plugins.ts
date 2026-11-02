@@ -54,6 +54,7 @@ export interface PluginManagerDeps {
   createClient?(server: PluginServer, options: McpClientOptions): McpClient;
   log?(event: string, detail: Record<string, unknown>): void;
   now?(): number;
+  onChange?(view: PluginsView): void;
 }
 
 const empty = (): StoredIndex => ({ version: 1, plugins: [], approvals: [], snapshots: [], daily: {}, evolution: { suggestions: [], adopted: [], dismissed: [] } });
@@ -92,7 +93,7 @@ export async function createPluginManager(deps: PluginManagerDeps) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') await rename(indexPath, `${indexPath}.corrupt-${now()}`).catch(() => {});
   }
   let writeTail = Promise.resolve();
-  const save = () => { const next = writeTail.then(async () => { await mkdir(dir, { recursive: true }); const tmp = `${indexPath}.tmp`; await writeFile(tmp, JSON.stringify(index, null, 1), 'utf8'); await rename(tmp, indexPath); }); writeTail = next.catch(() => {}); return next; };
+  const save = () => { const next = writeTail.then(async () => { await mkdir(dir, { recursive: true }); const tmp = `${indexPath}.tmp`; await writeFile(tmp, JSON.stringify(index, null, 1), 'utf8'); await rename(tmp, indexPath); }); writeTail = next.catch(() => {}); next.then(() => { try { deps.onChange?.(view()); } catch {} }, () => {}); return next; };
   let chain: Promise<unknown> = Promise.resolve();
   const serial = <T>(fn: () => Promise<T>) => { const next = chain.then(fn); chain = next.catch(() => {}); return next; };
   const clients = new Map<string, { server: PluginServer; client: McpClient }>();

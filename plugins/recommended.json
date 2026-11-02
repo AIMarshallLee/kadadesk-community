@@ -1,0 +1,66 @@
+[
+  {
+    "id": "showroom-leads",
+    "name": "3D 展厅预约提醒",
+    "version": "1.0.0",
+    "author": "咔哒团队",
+    "description": "业主在 3D 实景展厅留下预约后，1 到 2 分钟内发到管理员聊天，并记入客户档案",
+    "kind": "automation",
+    "sourceUrl": "plugins/official/showroom-leads",
+    "isOfficial": true,
+    "keywords": [
+      "展厅",
+      "3D",
+      "预约",
+      "量房",
+      "装修",
+      "家居",
+      "线索"
+    ],
+    "category": "获客"
+  },
+  {
+    "id": "flywheel-connect",
+    "name": "连接增长飞轮",
+    "version": "1.1.0",
+    "author": "咔哒团队",
+    "description": "把接待数据和客户来源打通到增长飞轮事件中心（或你自己的），不发聊天原文，默认关闭",
+    "kind": "automation",
+    "sourceUrl": "plugins/official/flywheel-connect",
+    "isOfficial": true,
+    "keywords": [
+      "获客",
+      "线索",
+      "CRM",
+      "看板",
+      "增长",
+      "扣词"
+    ],
+    "category": "获客"
+  },
+  {
+    "id": "document-tools",
+    "name": "文档工具",
+    "version": "1.0.0",
+    "author": "咔哒团队",
+    "description": "调用电脑上的办公套件生成 PDF 报价单与转换文档",
+    "kind": "cli",
+    "sourceUrl": "plugins/official/document-tools",
+    "requiresApp": "LibreOffice",
+    "isOfficial": true,
+    "cliAnything": {
+      "package": "cli-anything-libreoffice",
+      "version": "1.0.0"
+    },
+    "keywords": [
+      "报价",
+      "报价单",
+      "合同",
+      "文档",
+      "表格",
+      "发票",
+      "订单"
+    ],
+    "category": "文档"
+  }
+]
