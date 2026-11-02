@@ -1,0 +1,1383 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/flywheel-v1.schema.json",
+  "title": "增长飞轮事件 flywheel.v1",
+  "description": "四飞轮统一事件格式。权威说明见同目录《00-飞轮数据底座-统一接口规范-V1.0.md》。未知字段允许（向前兼容），未知事件类型允许但中心不统计。",
+  "type": "object",
+  "required": [
+    "schema",
+    "event_id",
+    "type",
+    "occurred_at",
+    "recorded_at",
+    "workspace_id",
+    "source",
+    "is_demo",
+    "payload"
+  ],
+  "properties": {
+    "schema": {
+      "const": "flywheel.v1"
+    },
+    "event_id": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "type": {
+      "type": "string",
+      "pattern": "^[a-z_]+\\.[a-z_]+$"
+    },
+    "occurred_at": {
+      "$ref": "#/$defs/datetime"
+    },
+    "recorded_at": {
+      "$ref": "#/$defs/datetime"
+    },
+    "workspace_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{1,62}$"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "system",
+        "instance"
+      ],
+      "properties": {
+        "system": {
+          "enum": [
+            "content-factory",
+            "crm",
+            "kadadesk",
+            "command-center",
+            "feishu-bitable",
+            "manual"
+          ]
+        },
+        "instance": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 32
+        }
+      }
+    },
+    "contact": {
+      "$ref": "#/$defs/contact"
+    },
+    "refs": {
+      "type": "object",
+      "properties": {
+        "content_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "conversation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "opportunity_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "quote_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "contract_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "payment_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "external": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "system",
+              "id"
+            ],
+            "properties": {
+              "system": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "is_demo": {
+      "type": "boolean"
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "content.published"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_content_published"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "content.metrics"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_content_metrics"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "lead.created",
+              "lead.touched"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "contact"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_lead"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "conversation.started"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "contact"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_conv_started"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "conversation.first_reply"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "contact"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_conv_first_reply"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "conversation.handoff"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "contact"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_conv_handoff"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "contact.profiled"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "contact"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_contact_profiled"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "kadadesk.daily_health"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_daily_health"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "opportunity.created"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "contact"
+        ],
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_opportunity_created"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "stage.changed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_stage_changed"
+          }
+        },
+        "required": [
+          "contact"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "followup.scheduled"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_followup_scheduled"
+          }
+        },
+        "required": [
+          "contact"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "followup.completed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_followup_completed"
+          }
+        },
+        "required": [
+          "contact"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "quote.sent"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_quote_sent"
+          }
+        },
+        "required": [
+          "contact"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "enum": [
+              "quote.accepted",
+              "quote.rejected"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_quote_decision"
+          }
+        },
+        "required": [
+          "contact"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "contract.signed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_contract_signed"
+          }
+        },
+        "required": [
+          "contact"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "payment.recorded"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_payment_recorded"
+          }
+        },
+        "required": [
+          "contact"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "payment.verified"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_payment_verified"
+          }
+        },
+        "required": [
+          "contact"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "payment.rejected"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_payment_rejected"
+          }
+        },
+        "required": [
+          "contact"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "deal.lost"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_deal_lost"
+          }
+        },
+        "required": [
+          "contact"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "delivery.accepted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/p_opp_only"
+          }
+        },
+        "required": [
+          "contact"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "datetime": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "cents": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "count": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "short": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "stage": {
+      "enum": [
+        "NEW",
+        "QUALIFIED",
+        "DISCOVERY",
+        "PROPOSAL",
+        "NEGOTIATION",
+        "WON",
+        "LOST",
+        "NURTURE"
+      ]
+    },
+    "contact": {
+      "type": "object",
+      "properties": {
+        "contact_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^ct_[0-9A-HJKMNP-TV-Z]{26}$"
+        },
+        "local_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "display_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "identities": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "required": [
+              "type",
+              "value"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "phone",
+                  "wechat_id",
+                  "wecom_external_userid",
+                  "email",
+                  "platform_uid",
+                  "store_id",
+                  "wechat_remark",
+                  "company_name"
+                ]
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "const": "phone"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "value": {
+                      "pattern": "^\\+[1-9]\\d{6,14}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "type": {
+                      "enum": [
+                        "platform_uid",
+                        "store_id"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "value": {
+                      "pattern": "^[a-z0-9_]+:.+$"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "consent": {
+          "type": "object",
+          "required": [
+            "basis",
+            "at"
+          ],
+          "properties": {
+            "basis": {
+              "enum": [
+                "customer_initiated",
+                "form_opt_in",
+                "offline_authorized",
+                "public_business_info"
+              ]
+            },
+            "at": {
+              "$ref": "#/$defs/datetime"
+            }
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "contact_id"
+          ],
+          "properties": {
+            "contact_id": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "required": [
+            "local_id"
+          ],
+          "properties": {
+            "local_id": {
+              "type": "string"
+            }
+          }
+        }
+      ],
+      "if": {
+        "required": [
+          "identities"
+        ],
+        "properties": {
+          "identities": {
+            "minItems": 1
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "consent"
+        ]
+      }
+    },
+    "p_content_published": {
+      "type": "object",
+      "required": [
+        "content_id",
+        "platform",
+        "title",
+        "published_at"
+      ],
+      "properties": {
+        "content_id": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "platform": {
+          "enum": [
+            "douyin",
+            "shipinhao",
+            "xhs",
+            "bilibili",
+            "kuaishou",
+            "wechat_article",
+            "moments",
+            "other"
+          ]
+        },
+        "account": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "cta_keyword": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20
+        },
+        "published_at": {
+          "$ref": "#/$defs/datetime"
+        }
+      }
+    },
+    "p_content_metrics": {
+      "type": "object",
+      "required": [
+        "content_id",
+        "platform",
+        "as_of_date",
+        "metrics_source"
+      ],
+      "properties": {
+        "content_id": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "as_of_date": {
+          "$ref": "#/$defs/date"
+        },
+        "views": {
+          "$ref": "#/$defs/count"
+        },
+        "likes": {
+          "$ref": "#/$defs/count"
+        },
+        "comments": {
+          "$ref": "#/$defs/count"
+        },
+        "shares": {
+          "$ref": "#/$defs/count"
+        },
+        "saves": {
+          "$ref": "#/$defs/count"
+        },
+        "followers_gained": {
+          "$ref": "#/$defs/count"
+        },
+        "metrics_source": {
+          "enum": [
+            "official",
+            "manual"
+          ]
+        }
+      }
+    },
+    "p_lead": {
+      "type": "object",
+      "required": [
+        "capture_channel"
+      ],
+      "properties": {
+        "capture_channel": {
+          "enum": [
+            "dm",
+            "comment",
+            "keyword",
+            "form",
+            "add_friend",
+            "group",
+            "visit",
+            "event",
+            "referral",
+            "partner",
+            "map_listing",
+            "showroom_booking",
+            "other"
+          ]
+        },
+        "platform": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "keyword": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 20
+        },
+        "campaign": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "landing_page": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "utm": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "source": {
+              "type": "string"
+            },
+            "medium": {
+              "type": "string"
+            },
+            "campaign": {
+              "type": "string"
+            }
+          }
+        },
+        "partner_code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        },
+        "need": {
+          "$ref": "#/$defs/short"
+        },
+        "note": {
+          "$ref": "#/$defs/short"
+        }
+      },
+      "if": {
+        "properties": {
+          "capture_channel": {
+            "const": "keyword"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "keyword"
+        ],
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "p_conv_started": {
+      "type": "object",
+      "required": [
+        "channel",
+        "first_message_at"
+      ],
+      "properties": {
+        "channel": {
+          "enum": [
+            "wechat",
+            "wecom",
+            "feishu",
+            "dingtalk",
+            "whatsapp",
+            "qianniu",
+            "phone",
+            "web",
+            "other"
+          ]
+        },
+        "first_message_at": {
+          "$ref": "#/$defs/datetime"
+        }
+      }
+    },
+    "p_conv_first_reply": {
+      "type": "object",
+      "required": [
+        "latency_seconds",
+        "by",
+        "mode"
+      ],
+      "properties": {
+        "latency_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "by": {
+          "enum": [
+            "ai",
+            "human"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "auto",
+            "review",
+            "manual"
+          ]
+        }
+      }
+    },
+    "p_conv_handoff": {
+      "type": "object",
+      "required": [
+        "reason"
+      ],
+      "properties": {
+        "reason": {
+          "enum": [
+            "knowledge_gap",
+            "price",
+            "complaint",
+            "media",
+            "explicit_request",
+            "risk",
+            "other"
+          ]
+        },
+        "topic": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 50
+        }
+      }
+    },
+    "p_contact_profiled": {
+      "type": "object",
+      "required": [
+        "fields",
+        "by"
+      ],
+      "properties": {
+        "by": {
+          "enum": [
+            "ai",
+            "human"
+          ]
+        },
+        "fields": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "intent": {
+              "enum": [
+                "high",
+                "medium",
+                "low",
+                "complaint"
+              ]
+            },
+            "industry": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "city": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "need": {
+              "$ref": "#/$defs/short"
+            },
+            "budget": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "timeline": {
+              "type": "string",
+              "maxLength": 32
+            },
+            "decision_maker": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "p_daily_health": {
+      "type": "object",
+      "required": [
+        "date",
+        "conversations",
+        "replied"
+      ],
+      "properties": {
+        "date": {
+          "$ref": "#/$defs/date"
+        },
+        "conversations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "replied": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "within_60s": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "within_120s": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "p50_seconds": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "slowest_seconds": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "handoffs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "knowledge_gaps": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stall_minutes": {
+          "type": "number",
+          "minimum": 0
+        },
+        "restarts": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "p_opportunity_created": {
+      "type": "object",
+      "required": [
+        "opportunity_id"
+      ],
+      "properties": {
+        "opportunity_id": {
+          "type": "string"
+        },
+        "product_type": {
+          "enum": [
+            "PUBLIC_TALK",
+            "SALON",
+            "STANDARD_TRAINING",
+            "WORKSHOP",
+            "PAID_DIAGNOSIS",
+            "PILOT",
+            "AI_PRODUCT",
+            "CUSTOM_DELIVERY",
+            "RETAINER",
+            null
+          ]
+        },
+        "expected_value_cents": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "owner": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 32
+        }
+      }
+    },
+    "p_stage_changed": {
+      "type": "object",
+      "required": [
+        "opportunity_id",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "opportunity_id": {
+          "type": "string"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/stage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "to": {
+          "$ref": "#/$defs/stage"
+        },
+        "reason": {
+          "$ref": "#/$defs/short"
+        }
+      }
+    },
+    "p_followup_scheduled": {
+      "type": "object",
+      "required": [
+        "due_at",
+        "action"
+      ],
+      "properties": {
+        "opportunity_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "due_at": {
+          "$ref": "#/$defs/datetime"
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      }
+    },
+    "p_followup_completed": {
+      "type": "object",
+      "required": [
+        "kind",
+        "outcome"
+      ],
+      "properties": {
+        "opportunity_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "call",
+            "chat",
+            "visit",
+            "meeting",
+            "demo",
+            "other"
+          ]
+        },
+        "outcome": {
+          "$ref": "#/$defs/short"
+        }
+      }
+    },
+    "p_quote_sent": {
+      "type": "object",
+      "required": [
+        "opportunity_id",
+        "quote_id",
+        "version",
+        "amount_cents"
+      ],
+      "properties": {
+        "opportunity_id": {
+          "type": "string"
+        },
+        "quote_id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "amount_cents": {
+          "$ref": "#/$defs/cents"
+        },
+        "valid_until": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "p_quote_decision": {
+      "type": "object",
+      "required": [
+        "opportunity_id",
+        "quote_id"
+      ],
+      "properties": {
+        "opportunity_id": {
+          "type": "string"
+        },
+        "quote_id": {
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/short"
+        }
+      }
+    },
+    "p_contract_signed": {
+      "type": "object",
+      "required": [
+        "opportunity_id",
+        "contract_id",
+        "amount_cents"
+      ],
+      "properties": {
+        "opportunity_id": {
+          "type": "string"
+        },
+        "contract_id": {
+          "type": "string"
+        },
+        "amount_cents": {
+          "$ref": "#/$defs/cents"
+        }
+      }
+    },
+    "p_payment_recorded": {
+      "type": "object",
+      "required": [
+        "contract_id",
+        "payment_id",
+        "amount_cents"
+      ],
+      "properties": {
+        "contract_id": {
+          "type": "string"
+        },
+        "payment_id": {
+          "type": "string"
+        },
+        "amount_cents": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "p_payment_verified": {
+      "type": "object",
+      "required": [
+        "contract_id",
+        "payment_id",
+        "amount_cents",
+        "received_at"
+      ],
+      "properties": {
+        "contract_id": {
+          "type": "string"
+        },
+        "payment_id": {
+          "type": "string"
+        },
+        "amount_cents": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "received_at": {
+          "$ref": "#/$defs/datetime"
+        }
+      }
+    },
+    "p_payment_rejected": {
+      "type": "object",
+      "required": [
+        "payment_id"
+      ],
+      "properties": {
+        "payment_id": {
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/short"
+        }
+      }
+    },
+    "p_deal_lost": {
+      "type": "object",
+      "required": [
+        "opportunity_id",
+        "reason"
+      ],
+      "properties": {
+        "opportunity_id": {
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "price",
+            "timing",
+            "no_budget",
+            "competitor",
+            "no_response",
+            "not_fit",
+            "other"
+          ]
+        },
+        "note": {
+          "$ref": "#/$defs/short"
+        }
+      }
+    },
+    "p_opp_only": {
+      "type": "object",
+      "required": [
+        "opportunity_id"
+      ],
+      "properties": {
+        "opportunity_id": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

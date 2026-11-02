@@ -127,6 +127,7 @@ function PluginCard({ plugin: p, plugins, busy, act, notify }: { plugin: PluginV
     </div>}
     {m.kind === 'tool' && <ToolList plugin={p} busy={busy} act={act} />}
     {m.kind === 'automation' && <RuleEditor plugin={p} plugins={plugins} busy={busy} act={act} />}
+    {m.id === 'official.flywheel-connect' && p.enabled && <FlywheelConnectSettingsCard notify={notify} />}
   </article>;
 }
 
@@ -207,4 +208,231 @@ export function EvolutionCard({ view: given, busy: givenBusy, act: givenAct }: {
     </div>)}
     <div className="pl-actions"><Button variant="secondary" disabled={busy} onClick={() => void act(() => bridge()!.evolution(), '建议已更新')}><RefreshCw size={15} />现在看一次</Button>{!given && <Button variant="ghost" onClick={() => navigate('plugins')}>去插件页</Button>}{note && <span className="muted">{note}</span>}</div>
   </section>;
+}
+
+function FlywheelConnectSettingsCard({ notify }: { notify: Notify }) {
+  const [data, setData] = useState<{
+    config: {
+      enabled: boolean;
+      hubUrl: string;
+      apiKey: string;
+      workspaceId: string;
+      sendReceptionEvents: boolean;
+      sendProfileUpdates: boolean;
+      receiveExternalLeads: boolean;
+      receiveSalesStages: boolean;
+    };
+    state: {
+      sentCount: number;
+      pendingCount: number;
+      errorCount: number;
+      lastSuccessAt?: string;
+      lastError?: string;
+      lastFeedCursor?: string;
+      lastKeywordsSyncAt?: string;
+    };
+  }>();
+
+  const [hubUrlInput, setHubUrlInput] = useState('');
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [sendEvents, setSendEvents] = useState(true);
+  const [sendProfiles, setSendProfiles] = useState(true);
+  const [receiveLeads, setReceiveLeads] = useState(true);
+  const [receiveStages, setReceiveStages] = useState(true);
+  const [testing, setTesting] = useState(false);
+  const [pingMsg, setPingMsg] = useState('');
+  const [pingOk, setPingOk] = useState<boolean>();
+  const [saving, setSaving] = useState(false);
+  const [showPrivacyConfirm, setShowPrivacyConfirm] = useState(false);
+
+  const bridgeObj = (window as any).flowdesk?.flywheel;
+
+  const load = useCallback(() => {
+    if (!bridgeObj) return;
+    void bridgeObj.state().then((res: any) => {
+      setData(res);
+      setHubUrlInput(res?.config?.hubUrl || '');
+      setSendEvents(res?.config?.sendReceptionEvents !== false);
+      setSendProfiles(res?.config?.sendProfileUpdates !== false);
+      setReceiveLeads(res?.config?.receiveExternalLeads !== false);
+      setReceiveStages(res?.config?.receiveSalesStages !== false);
+    }).catch((e: Error) => notify(e.message, true));
+  }, [bridgeObj, notify]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const onTest = async () => {
+    if (!bridgeObj) return;
+    setTesting(true);
+    setPingMsg('正在测试连接…');
+    setPingOk(undefined);
+    try {
+      const res = await bridgeObj.test({
+        hubUrl: hubUrlInput,
+        apiKey: apiKeyInput || data?.config?.apiKey,
+      });
+      setPingOk(res.ok);
+      setPingMsg(res.message);
+    } catch (e) {
+      setPingOk(false);
+      setPingMsg((e as Error).message || '连接失败，请检查网络与地址');
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const onSave = async () => {
+    if (!bridgeObj) return;
+    setSaving(true);
+    try {
+      await bridgeObj.save({
+        hubUrl: hubUrlInput,
+        ...(apiKeyInput ? { apiKey: apiKeyInput } : {}),
+        sendReceptionEvents: sendEvents,
+        sendProfileUpdates: sendProfiles,
+        receiveExternalLeads: receiveLeads,
+        receiveSalesStages: receiveStages,
+      });
+      setApiKeyInput('');
+      notify('飞轮数据底座对接设置已保存');
+      load();
+    } catch (e) {
+      notify((e as Error).message, true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onClearOutbox = async () => {
+    if (!bridgeObj) return;
+    if (!window.confirm('确认清空发件箱中积压的未发送事件？')) return;
+    try {
+      await bridgeObj.clearOutbox();
+      notify('已清空发件箱');
+      load();
+    } catch (e) {
+      notify((e as Error).message, true);
+    }
+  };
+
+  if (!data) return null;
+
+  return (
+    <div className="pl-flywheel-settings" style={{ marginTop: '12px', padding: '14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <h4 style={{ margin: 0, fontSize: '13px', color: '#1e293b', fontWeight: 'bold' }}>飞轮数据底座对接设置</h4>
+        <button
+          type="button"
+          onClick={() => setShowPrivacyConfirm(!showPrivacyConfirm)}
+          style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '12px', cursor: 'pointer', padding: 0 }}
+        >
+          {showPrivacyConfirm ? '收起隐私保证' : '查看数据合规与隐私保证'}
+        </button>
+      </div>
+
+      {showPrivacyConfirm && (
+        <div style={{ padding: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', fontSize: '12px', color: '#166534', marginBottom: '12px' }}>
+          <strong>数据合规与零泄露承诺：</strong>
+          <ul style={{ margin: '4px 0 0', paddingLeft: '18px' }}>
+            <li><strong>绝不发送聊天原文</strong>：出站仅为脱敏事件统计与指标，不包含客户消息或回复正文。</li>
+            <li><strong>敏感信息不出站</strong>：绝不发送标有敏感标记的事实、绝不发送原话引用（quote）。</li>
+            <li><strong>零打扰优先</strong>：后台异步传输，客户在等回复或电脑繁忙时自动避让，不影响 1 分钟内必回。</li>
+          </ul>
+        </div>
+      )}
+
+      {/* 状态统计看板 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '12px', background: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+        <div>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>已发送事件</div>
+          <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#0f172a' }}>{data.state.sentCount}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>队列待发</div>
+          <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#d97706' }}>{data.state.pendingCount}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>出错丢弃</div>
+          <div style={{ fontSize: '15px', fontWeight: 'bold', color: data.state.errorCount > 0 ? '#dc2626' : '#64748b' }}>{data.state.errorCount}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>最近成功</div>
+          <div style={{ fontSize: '12px', color: '#334155', marginTop: '2px' }}>
+            {data.state.lastSuccessAt ? new Date(data.state.lastSuccessAt).toLocaleTimeString() : '尚未同步'}
+          </div>
+        </div>
+      </div>
+
+      {data.state.lastError && (
+        <div style={{ padding: '6px 10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '4px', fontSize: '12px', color: '#b91c1c', marginBottom: '10px' }}>
+          <strong>提示：</strong>{data.state.lastError}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px', color: '#475569' }}>事件中心地址：</label>
+          <input
+            style={{ width: '100%', maxWidth: '420px', padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+            placeholder="例如 https://flywheel.example.com"
+            value={hubUrlInput}
+            onChange={e => setHubUrlInput(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px', color: '#475569' }}>
+            对接密钥（存系统钥匙串）：
+            {data.config.apiKey && <span style={{ color: '#16a34a', marginLeft: '6px' }}>已配置密钥</span>}
+          </label>
+          <input
+            type="password"
+            style={{ width: '100%', maxWidth: '420px', padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+            placeholder={data.config.apiKey ? '留空保持原有密钥不变' : '粘贴事件中心分配给咔哒的来源密钥'}
+            value={apiKeyInput}
+            onChange={e => setApiKeyInput(e.target.value)}
+          />
+        </div>
+
+        {/* 细粒度开关 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', margin: '4px 0' }}>
+          <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: '#334155' }}>
+            <input type="checkbox" checked={sendEvents} onChange={e => setSendEvents(e.target.checked)} />
+            发送接待事件（进线、首响、转人工）
+          </label>
+          <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: '#334155' }}>
+            <input type="checkbox" checked={sendProfiles} onChange={e => setSendProfiles(e.target.checked)} />
+            发送客户画像（意向、预算、需求等）
+          </label>
+          <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: '#334155' }}>
+            <input type="checkbox" checked={receiveLeads} onChange={e => setReceiveLeads(e.target.checked)} />
+            接收别处来的客户与扣词来源
+          </label>
+          <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: '#334155' }}>
+            <input type="checkbox" checked={receiveStages} onChange={e => setReceiveStages(e.target.checked)} />
+            接收销售进展与商机阶段
+          </label>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '6px' }}>
+          <Button variant="secondary" disabled={testing || saving} onClick={onTest}>
+            {testing ? '正在测试…' : '测试连接'}
+          </Button>
+          <Button disabled={saving || testing} onClick={onSave}>
+            {saving ? '保存中…' : '保存设置'}
+          </Button>
+          {data.state.pendingCount > 0 && (
+            <Button variant="ghost" onClick={onClearOutbox}>
+              清空待发队列
+            </Button>
+          )}
+          {pingMsg && (
+            <span style={{ fontSize: '13px', color: pingOk ? '#16a34a' : '#dc2626' }}>
+              {pingMsg}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }

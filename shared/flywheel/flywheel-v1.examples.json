@@ -1,0 +1,461 @@
+{
+  "说明": "flywheel.v1 样例事件：一条视频→扣词进线→接待→商机→报价→签约→回款核实的完整一串，外加内容数据、转人工、丢单和咔哒日报。全部为虚构演示数据（is_demo=true）。",
+  "events": [
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-000000000001",
+      "type": "content.published",
+      "occurred_at": "2026-11-01T19:00:00+08:00",
+      "recorded_at": "2026-11-01T19:00:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "content-factory",
+        "instance": "win-pc-01",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "content_id": "vid_t12_60s_v2",
+        "platform": "douyin",
+        "account": "官方空间号",
+        "url": "https://www.douyin.com/video/0000000000",
+        "title": "老板晚上睡觉，AI 客服帮你接客户",
+        "cta_keyword": "AI客服",
+        "published_at": "2026-11-01T19:00:00+08:00"
+      },
+      "refs": {
+        "content_id": "vid_t12_60s_v2"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-000000000002",
+      "type": "content.metrics",
+      "occurred_at": "2026-11-02T08:00:00+08:00",
+      "recorded_at": "2026-11-02T08:00:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "content-factory",
+        "instance": "win-pc-01",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "content_id": "vid_t12_60s_v2",
+        "platform": "douyin",
+        "as_of_date": "2026-11-01",
+        "views": 3200,
+        "likes": 85,
+        "comments": 21,
+        "shares": 9,
+        "saves": 40,
+        "followers_gained": 12,
+        "metrics_source": "manual"
+      },
+      "refs": {
+        "content_id": "vid_t12_60s_v2"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-000000000003",
+      "type": "lead.created",
+      "occurred_at": "2026-11-02T10:12:00+08:00",
+      "recorded_at": "2026-11-02T10:12:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "kadadesk",
+        "instance": "mac-mini-01",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "capture_channel": "keyword",
+        "keyword": "AI客服",
+        "platform": "douyin",
+        "need": "门店晚上没人回消息"
+      },
+      "contact": {
+        "contact_id": null,
+        "local_id": "profile_7f3a",
+        "display_name": "示例客户A",
+        "identities": [
+          {
+            "type": "wechat_remark",
+            "value": "示例客户A-门店"
+          }
+        ],
+        "consent": {
+          "basis": "customer_initiated",
+          "at": "2026-11-02T10:12:00+08:00"
+        }
+      },
+      "refs": {
+        "content_id": "vid_t12_60s_v2",
+        "conversation_id": "cv_9b1e2f"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-000000000004",
+      "type": "conversation.started",
+      "occurred_at": "2026-11-02T10:12:00+08:00",
+      "recorded_at": "2026-11-02T10:12:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "kadadesk",
+        "instance": "mac-mini-01",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "channel": "wechat",
+        "first_message_at": "2026-11-02T10:12:00+08:00"
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      },
+      "refs": {
+        "conversation_id": "cv_9b1e2f"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-000000000005",
+      "type": "conversation.first_reply",
+      "occurred_at": "2026-11-02T10:12:07+08:00",
+      "recorded_at": "2026-11-02T10:12:07+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "kadadesk",
+        "instance": "mac-mini-01",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "latency_seconds": 7,
+        "by": "ai",
+        "mode": "auto"
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      },
+      "refs": {
+        "conversation_id": "cv_9b1e2f"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-000000000006",
+      "type": "contact.profiled",
+      "occurred_at": "2026-11-02T10:20:00+08:00",
+      "recorded_at": "2026-11-02T10:20:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "kadadesk",
+        "instance": "mac-mini-01",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "by": "ai",
+        "fields": {
+          "intent": "high",
+          "industry": "零售门店",
+          "city": "淮北",
+          "need": "晚间和周末自动接待",
+          "decision_maker": true
+        }
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-000000000007",
+      "type": "conversation.handoff",
+      "occurred_at": "2026-11-02T10:25:00+08:00",
+      "recorded_at": "2026-11-02T10:25:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "kadadesk",
+        "instance": "mac-mini-01",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "reason": "price",
+        "topic": "问年费能否分期"
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      },
+      "refs": {
+        "conversation_id": "cv_9b1e2f"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-000000000008",
+      "type": "opportunity.created",
+      "occurred_at": "2026-11-02T11:00:00+08:00",
+      "recorded_at": "2026-11-02T11:00:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "crm",
+        "instance": "crm-local",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "opportunity_id": "opp-41",
+        "product_type": "AI_PRODUCT",
+        "expected_value_cents": 299800,
+        "owner": "店长"
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      },
+      "refs": {
+        "opportunity_id": "opp-41"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-000000000009",
+      "type": "stage.changed",
+      "occurred_at": "2026-11-02T11:00:00+08:00",
+      "recorded_at": "2026-11-02T11:00:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "crm",
+        "instance": "crm-local",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "opportunity_id": "opp-41",
+        "from": "NEW",
+        "to": "QUALIFIED",
+        "reason": "老板本人，有明确需求"
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      },
+      "refs": {
+        "opportunity_id": "opp-41"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-00000000000a",
+      "type": "followup.scheduled",
+      "occurred_at": "2026-11-02T11:01:00+08:00",
+      "recorded_at": "2026-11-02T11:01:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "crm",
+        "instance": "crm-local",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "opportunity_id": "opp-41",
+        "due_at": "2026-11-03T15:00:00+08:00",
+        "action": "远程演示咔哒接待"
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      },
+      "refs": {
+        "opportunity_id": "opp-41"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-00000000000b",
+      "type": "followup.completed",
+      "occurred_at": "2026-11-03T15:40:00+08:00",
+      "recorded_at": "2026-11-03T15:40:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "crm",
+        "instance": "crm-local",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "opportunity_id": "opp-41",
+        "kind": "demo",
+        "outcome": "演示完成，想先买月度版试用"
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      },
+      "refs": {
+        "opportunity_id": "opp-41"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-00000000000c",
+      "type": "quote.sent",
+      "occurred_at": "2026-11-03T16:00:00+08:00",
+      "recorded_at": "2026-11-03T16:00:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "crm",
+        "instance": "crm-local",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "opportunity_id": "opp-41",
+        "quote_id": "q-41-1",
+        "version": 1,
+        "amount_cents": 29800,
+        "valid_until": "2026-11-10"
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      },
+      "refs": {
+        "opportunity_id": "opp-41",
+        "quote_id": "q-41-1"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-00000000000d",
+      "type": "contract.signed",
+      "occurred_at": "2026-11-04T10:00:00+08:00",
+      "recorded_at": "2026-11-04T10:00:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "crm",
+        "instance": "crm-local",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "opportunity_id": "opp-41",
+        "contract_id": "c-41",
+        "amount_cents": 29800
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      },
+      "refs": {
+        "opportunity_id": "opp-41",
+        "contract_id": "c-41"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-00000000000e",
+      "type": "payment.recorded",
+      "occurred_at": "2026-11-04T10:05:00+08:00",
+      "recorded_at": "2026-11-04T10:05:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "crm",
+        "instance": "crm-local",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "contract_id": "c-41",
+        "payment_id": "p-41-1",
+        "amount_cents": 29800
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      },
+      "refs": {
+        "contract_id": "c-41",
+        "payment_id": "p-41-1"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-00000000000f",
+      "type": "payment.verified",
+      "occurred_at": "2026-11-04T18:00:00+08:00",
+      "recorded_at": "2026-11-04T18:00:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "crm",
+        "instance": "crm-local",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "contract_id": "c-41",
+        "payment_id": "p-41-1",
+        "amount_cents": 29800,
+        "received_at": "2026-11-04T10:03:00+08:00"
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AC"
+      },
+      "refs": {
+        "contract_id": "c-41",
+        "payment_id": "p-41-1"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-000000000010",
+      "type": "deal.lost",
+      "occurred_at": "2026-11-05T09:00:00+08:00",
+      "recorded_at": "2026-11-05T09:00:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "crm",
+        "instance": "crm-local",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "opportunity_id": "opp-42",
+        "reason": "no_budget",
+        "note": "今年预算已用完，明年一季度再聊"
+      },
+      "contact": {
+        "contact_id": "ct_01JBX7M3Q9V2K8R4T6W1Y5Z0AD"
+      },
+      "refs": {
+        "opportunity_id": "opp-42"
+      }
+    },
+    {
+      "schema": "flywheel.v1",
+      "event_id": "0193f1c2-7d4a-7b3e-9a10-000000000011",
+      "type": "kadadesk.daily_health",
+      "occurred_at": "2026-11-02T21:00:00+08:00",
+      "recorded_at": "2026-11-02T21:00:00+08:00",
+      "workspace_id": "kunlun",
+      "source": {
+        "system": "kadadesk",
+        "instance": "mac-mini-01",
+        "version": "example"
+      },
+      "is_demo": true,
+      "payload": {
+        "date": "2026-11-02",
+        "conversations": 18,
+        "replied": 18,
+        "within_60s": 17,
+        "within_120s": 18,
+        "p50_seconds": 9,
+        "slowest_seconds": 74,
+        "handoffs": 3,
+        "failed": 0,
+        "knowledge_gaps": 2,
+        "stall_minutes": 0,
+        "restarts": 0
+      }
+    }
+  ]
+}

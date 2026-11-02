@@ -282,6 +282,63 @@ async function startApp() {
     request: (r: ApiRequest) => service.request(r)
   });
 
+  // 飞轮插件 (Flywheel Connect)
+  let flywheelManager: import('./flywheel-connect').FlywheelManager | undefined;
+  try {
+    const { FlywheelManager } = await import('./flywheel-connect');
+    const { addReceptionListener, addContextAugmenter } = await import('./plugin-hooks');
+    flywheelManager = new FlywheelManager({
+      userDataDir: userData,
+      customerWaiting: () => false,
+      receptionRunning: () => false,
+      resourceLevel: () => 'normal',
+    });
+    await flywheelManager.init();
+
+    addReceptionListener(event => {
+      if (flywheelManager) void flywheelManager.handleReceptionEvent(event).catch(() => {});
+    });
+
+    addContextAugmenter(async (ctx, query) => {
+      if (!flywheelManager || !query) return ctx;
+      const matched = flywheelManager.matchKeywordForReply('', query);
+      if (matched?.matched) {
+        return {
+          ...ctx,
+          instructions: `${ctx.instructions}\n【来源提示】${matched.contextPrompt}`,
+        };
+      }
+      return ctx;
+    });
+
+    ipcMain.handle('flowdesk:flywheel:state', async event => {
+      trusted(event);
+      if (!flywheelManager) throw new Error('飞轮插件未就绪');
+      return {
+        config: flywheelManager.getConfig(),
+        state: flywheelManager.getState(),
+      };
+    });
+    ipcMain.handle('flowdesk:flywheel:save', async (event, patch) => {
+      trusted(event);
+      if (!flywheelManager) throw new Error('飞轮插件未就绪');
+      return await flywheelManager.setConfig((patch ?? {}) as Record<string, unknown>);
+    });
+    ipcMain.handle('flowdesk:flywheel:test', async (event, options) => {
+      trusted(event);
+      if (!flywheelManager) throw new Error('飞轮插件未就绪');
+      return await flywheelManager.testConnection(options?.hubUrl, options?.apiKey);
+    });
+    ipcMain.handle('flowdesk:flywheel:clear-outbox', async event => {
+      trusted(event);
+      if (!flywheelManager) throw new Error('飞轮插件未就绪');
+      await flywheelManager.clearOutbox();
+      return flywheelManager.getState();
+    });
+  } catch {
+    // optional
+  }
+
   // 开放 MCP IPC
   ipcMain.handle('flowdesk:open:state', async (event) => {
     trusted(event);
