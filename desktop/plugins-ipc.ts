@@ -1,10 +1,7 @@
 
 const recordDiag = (_scope: string, _detail?: any) => {};
-export const pluginHooks: Record<string, any> = {
-  augmentContext: async (_ctx?: any, _q?: any, _sig?: any) => ({}),
-  receptionEvent: async (_ev?: any) => {}
-};
 import { app, ipcMain } from 'electron';
+import { pluginHooks } from './plugin-hooks';
 import { showNotice } from './notice-center';
 import { createPluginManager, type PluginManagerDeps } from './plugins';
 import type { ApiRequest } from '../shared/types';
@@ -19,10 +16,12 @@ export async function registerPlugins(options: {
   request(req: ApiRequest): Promise<unknown>;
   journal?: PluginManagerDeps['journal'];
   alertAdmin?: PluginManagerDeps['alertAdmin'];
+  /** After every saved plugin change (built-in plugins follow install / switch / uninstall). */
+  onChange?: PluginManagerDeps['onChange'];
 }) {
   const notified = new Map<string, number>();
   const manager = await createPluginManager({
-    directory: options.directory, request: options.request, journal: options.journal, alertAdmin: options.alertAdmin,
+    directory: options.directory, request: options.request, journal: options.journal, alertAdmin: options.alertAdmin, ...(options.onChange ? { onChange: options.onChange } : {}),
     // Same rule as reception alerts: one system notification per title and text within a minute.
     notify: (title, body) => { const key = title + body, t = Date.now(); if (t - (notified.get(key) ?? 0) < 60000) return; notified.set(key, t); if (notified.size > 200) notified.clear(); showNotice({ key: 'plugins', title, body, open: true, cooldownMs: 0 }); },
     log: (event, detail) => recordDiag(event, detail),
@@ -33,6 +32,7 @@ export async function registerPlugins(options: {
   handle('state', () => manager.view());
   handle('preview', (text: unknown) => manager.preview(text));
   handle('install', (text: unknown, consent: unknown) => manager.install(text, consent));
+  handle('install-builtin', (id: unknown, consent: unknown) => manager.installBuiltin(id, consent));
   handle('set-enabled', (id: unknown, enabled: unknown) => manager.setEnabled(id, enabled));
   handle('uninstall', (id: unknown) => manager.uninstall(id));
   handle('undo', () => manager.undo());

@@ -1,92 +1,42 @@
-/**
- * 扣词匹配引擎与上下文生成
- */
-
+import { platformLabel } from './channels';
 import type { FlywheelKeywordItem } from './types';
 
+/**
+ * 扣词 matching for a conversation's first customer message. Width (全角/半角), case, spaces, punctuation and middle
+ * dots are ignored. A keyword of 3+ characters matches when the message is it or contains it; a 2-character keyword
+ * only when the message is (nearly) just that keyword, so 「资料」 does not fire on every sentence that mentions 资料.
+ */
 export function normalizeKeywordText(text: string): string {
-  if (!text) return '';
-  let s = text.replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xfee0)).replace(/\u3000/g, ' ');
-  s = s.toLowerCase();
-  s = s.replace(/[\s\r\n\t~`!@#$%^&*()_\-+={}\[\]|\\:;"'<>,.?/，。！？、；：""''（）《》【】…—]+/gu, '');
-  return s;
+  return String(text ?? '').normalize('NFKC').toLowerCase().replace(/[\p{P}\p{S}\p{Z}\s·・•‧∙⋅]+/gu, '');
 }
 
-export function platformDisplayName(platform?: string): string {
-  switch (platform?.toLowerCase()) {
-    case 'xhs':
-    case 'xiaohongshu':
-      return '小红书';
-    case 'douyin':
-      return '抖音';
-    case 'shipinhao':
-    case 'channels':
-      return '视频号';
-    case 'bilibili':
-    case 'b站':
-      return 'B站';
-    case 'kuaishou':
-      return '快手';
-    case 'wechat_article':
-      return '公众号';
-    case 'moments':
-      return '朋友圈';
-    default:
-      return platform || '线上内容';
+export interface KeywordMatch { keyword: string; item: FlywheelKeywordItem; contextLine: string; sourceFact: string }
+
+/** Strips what the hub sent to the fields kadadesk uses; drops anything malformed. */
+export function cleanKeywordItems(raw: unknown): FlywheelKeywordItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: FlywheelKeywordItem[] = [];
+  for (const r of raw.slice(0, 2000)) {
+    if (!r || typeof r !== 'object') continue;
+    const x = r as Record<string, unknown>;
+    if (typeof x.keyword !== 'string' || typeof x.content_id !== 'string' || !normalizeKeywordText(x.keyword)) continue;
+    out.push({ keyword: x.keyword.slice(0, 20), content_id: x.content_id.slice(0, 128), title: typeof x.title === 'string' ? x.title.slice(0, 120) : '', ...(typeof x.platform === 'string' ? { platform: x.platform.slice(0, 32) } : {}), ...(typeof x.published_at === 'string' ? { published_at: x.published_at.slice(0, 40) } : {}) });
   }
+  return out;
 }
 
-export interface KeywordMatchResult {
-  matched: true;
-  keyword: string;
-  item: FlywheelKeywordItem;
-  contextPrompt: string;
-  sourceFactValue: string;
-}
-
-export interface KeywordNoMatch {
-  matched: false;
-}
-
-export type KeywordCheckResult = KeywordMatchResult | KeywordNoMatch;
-
-export function matchKeywords(text: string, keywords: FlywheelKeywordItem[]): KeywordCheckResult {
-  if (!text || !keywords || keywords.length === 0) return { matched: false };
-
-  const normInput = normalizeKeywordText(text);
-  if (!normInput) return { matched: false };
-
-  const sorted = [...keywords].sort((a, b) => b.keyword.length - a.keyword.length);
-
-  for (const item of sorted) {
-    const normKw = normalizeKeywordText(item.keyword);
-    if (!normKw) continue;
-    if (normInput === normKw) {
-      const pName = platformDisplayName(item.platform);
-      return {
-        matched: true,
-        keyword: item.keyword,
-        item,
-        contextPrompt: `这位客户是看了《${item.title}》（${pName}）来的，发了扣词「${item.keyword}」`,
-        sourceFactValue: `《${item.title}》/扣词`,
-      };
-    }
-  }
-
-  for (const item of sorted) {
-    const normKw = normalizeKeywordText(item.keyword);
-    if (!normKw || normKw.length < 2) continue;
-    if (normInput.includes(normKw)) {
-      const pName = platformDisplayName(item.platform);
-      return {
-        matched: true,
-        keyword: item.keyword,
-        item,
-        contextPrompt: `这位客户是看了《${item.title}》（${pName}）来的，发了扣词「${item.keyword}」`,
-        sourceFactValue: `《${item.title}》/扣词`,
-      };
-    }
-  }
-
-  return { matched: false };
+export function matchKeyword(text: string, items: FlywheelKeywordItem[]): KeywordMatch | undefined {
+  const input = normalizeKeywordText(text);
+  if (!input || !items.length) return undefined;
+  const sorted = items.map(item => ({ item, k: normalizeKeywordText(item.keyword) })).filter(x => x.k).sort((a, b) => b.k.length - a.k.length);
+  const hit = sorted.find(x => x.k === input)
+    ?? sorted.find(x => x.k.length >= 3 && input.includes(x.k))
+    ?? sorted.find(x => x.k.length === 2 && input.length <= 4 && input.includes(x.k));
+  if (!hit) return undefined;
+  const title = hit.item.title || hit.item.content_id;
+  return {
+    keyword: hit.item.keyword, item: hit.item,
+    contextLine: `这位客户是看了《${title}》（${platformLabel(hit.item.platform)}）来的，发了扣词「${hit.item.keyword}」。先接住这个来源：照内容里承诺的给到资料（资料里有对应回复就照常发），再接着聊。`,
+    sourceFact: `《${title}》/扣词`.slice(0, 200),
+  };
 }

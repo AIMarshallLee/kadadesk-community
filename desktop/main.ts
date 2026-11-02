@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, shell, Tray } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, safeStorage, shell, Tray } from 'electron';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -12,7 +12,11 @@ import { createKnowledgeLibrary } from './knowledge-library-ipc';
 import { registerCustomers } from './customers-ipc';
 import { registerPlugins } from './plugins-ipc';
 import { createOpenMcp } from './open-mcp';
-import { createNoticeCenter, installNoticeCenter } from './notice-center';
+import { createEncryptedSecretStore } from './encrypted-secret-store';
+import type { FlywheelManager } from './flywheel-connect';
+import type { Customers } from './customers';
+import type { PluginsView } from '../shared/plugins';
+import { createNoticeCenter, installNoticeCenter, showNotice } from './notice-center';
 import { NoticeWindow } from './notice-window';
 import { trayTemplate1x } from './brand-icons';
 import { createModelTimingBuffer } from './model-timing';
@@ -29,6 +33,8 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let openMcpServer: ReturnType<typeof createOpenMcp> | null = null;
 let noticeWindow: NoticeWindow | null = null;
+let flywheelManager: FlywheelManager | undefined;
+let customers: Customers | undefined;
 
 const timingBuffer = createModelTimingBuffer();
 
@@ -50,7 +56,11 @@ async function startApp() {
       request: async (input) => service.request(input as ApiRequest),
       reception: () => undefined,
       pauseReception: async () => {},
-      suspendReception: async () => {}
+      suspendReception: async () => {},
+      // 连接增长飞轮: read only, never phone numbers, identities, sensitive facts, quotes or chat text (open-mcp.ts filters again).
+      flywheelEnabled: () => Boolean(flywheelManager?.active),
+      customers: async () => customers ? customers.profiles().map(p => ({ id: p.id, flywheelContactId: p.flywheelContactId, tags: p.tags, salesStage: p.salesStage, facts: p.facts.map(f => ({ field: f.field, value: f.value, source: f.source, ...(f.sensitive ? { sensitive: true } : {}) })) })) : [],
+      receptionEvents: async (since, limit) => flywheelManager ? flywheelManager.recentEvents(since, limit ?? 20) : [],
     });
     await openMcpServer.init().catch(() => {});
   } catch (err) {
@@ -253,7 +263,7 @@ async function startApp() {
   ipcMain.handle('flowdesk:library:backup-clear', (e) => { trusted(e); return library.setBackupDir(undefined); });
 
   // 客户档案 IPC
-  await registerCustomers({
+  customers = await registerCustomers({
     directory: userData,
     trusted,
     config: () => undefined,
@@ -276,67 +286,87 @@ async function startApp() {
   });
 
   // 插件系统 IPC
-  await registerPlugins({
+  let flywheelPluginChanged: ((view: PluginsView) => void) | undefined;
+  const pluginManager = await registerPlugins({
     directory: userData,
     trusted,
-    request: (r: ApiRequest) => service.request(r)
+    request: (r: ApiRequest) => service.request(r),
+    onChange: view => flywheelPluginChanged?.(view),
   });
 
-  // 飞轮插件 (Flywheel Connect)
-  let flywheelManager: import('./flywheel-connect').FlywheelManager | undefined;
+  // 连接增长飞轮 (desktop/flywheel-connect.ts): a built-in plugin, off until installed, switched on and confirmed on its
+  // card. While off, no listener is registered: events are not even looked at. The key lives only in the encrypted
+  // store (safeStorage); the page only learns whether one is saved.
   try {
-    const { FlywheelManager } = await import('./flywheel-connect');
-    const { addReceptionListener, addContextAugmenter } = await import('./plugin-hooks');
-    flywheelManager = new FlywheelManager({
-      userDataDir: userData,
-      customerWaiting: () => false,
-      receptionRunning: () => false,
-      resourceLevel: () => 'normal',
+    const { FlywheelManager, conversationKeyOf } = await import('./flywheel-connect');
+    const hooks = await import('./plugin-hooks');
+    const manager = new FlywheelManager({
+      dir: join(userData, 'flywheel'),
+      secrets: createEncryptedSecretStore(join(userData, 'flywheel-secret.json'), safeStorage),
+      version: app.getVersion(),
+      // The community edition runs no reception loop: nothing here has to wait for a customer.
+      idle: () => true,
+      customers: {
+        byId: id => customers?.findProfileById(id),
+        ensureProfile: async (name, channel, chatKind) => customers ? customers.ensureProfile(name, channel, chatKind) : undefined,
+        writeContactId: async (id, contactId) => customers?.flywheel.writeContactId(id, contactId),
+        recordSource: async (id, value) => customers?.flywheel.recordSource(id, value),
+        importLead: async lead => customers ? customers.flywheel.importLead(lead) : { status: 'full' as const },
+        resolveSuspect: async (lead, candidateId, same) => customers ? customers.flywheel.resolveSuspect(lead, candidateId, same) : { status: 'full' as const },
+        mergePair: async (intoId, fromId) => customers?.flywheel.mergePair(intoId, fromId),
+        applySales: async update => customers ? customers.flywheel.applySales(update) : false,
+      },
+      notify: (title, body) => { showNotice({ key: 'flywheel', title, body, open: true, cooldownMs: 30 * 60000 }); },
     });
-    await flywheelManager.init();
-
-    addReceptionListener(event => {
-      if (flywheelManager) void flywheelManager.handleReceptionEvent(event).catch(() => {});
+    flywheelManager = manager;
+    await manager.init();
+    let offHooks: Array<() => void> = []; let hooked: boolean | undefined;
+    const syncHooks = () => {
+      if (hooked === manager.active) return; hooked = manager.active;
+      for (const off of offHooks) off(); offHooks = [];
+      hooks.setReceptionResolver(undefined);
+      if (!manager.active) return;
+      hooks.setReceptionResolver(async event => {
+        const channel = event.channel ?? 'desk';
+        let profileId = event.profileId;
+        if (!profileId) { if (!customers || event.chatKind === 'group') return undefined; profileId = await customers.ensureProfile(event.conversation, channel, event.chatKind); }
+        if (!profileId) return undefined;
+        return { ...event, at: event.at ?? new Date().toISOString(), profileId, conversationKey: event.conversationKey ?? conversationKeyOf(channel, event.conversation) } as import('./replies-contract').ResolvedReceptionEvent;
+      });
+      offHooks.push(hooks.addReceptionListener(event => manager.onReceptionEvent(event)));
+      offHooks.push(hooks.addContextAugmenter(async (ctx, query, _signal, meta) => {
+        const line = manager.keywordHint(meta, query);
+        return line ? { ...ctx, instructions: `${ctx.instructions}\n【客户来源】${line}` } : ctx;
+      }));
+    };
+    const pluginState = (view: PluginsView | undefined) => {
+      const p = view?.plugins.find(x => x.manifest.id === 'flywheel-connect' && x.builtin);
+      return { installed: !!p, enabled: !!p?.enabled };
+    };
+    flywheelPluginChanged = view => { void manager.setPluginState(pluginState(view)).then(syncHooks).catch(() => {}); };
+    await manager.setPluginState(pluginState(pluginManager.view()));
+    syncHooks();
+    app.once('will-quit', () => { manager.dispose(); hooks.setReceptionResolver(undefined); for (const off of offHooks) off(); });
+    const handle = (name: string, action: (...args: any[]) => unknown) => ipcMain.handle(`flowdesk:flywheel:${name}`, (event, ...args) => { trusted(event); return action(...args); });
+    handle('state', () => manager.view());
+    handle('save', (patch: unknown) => manager.saveSettings((patch && typeof patch === 'object' ? patch : {}) as Record<string, unknown>));
+    handle('test', (input: unknown) => { const o = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>; return manager.testConnection({ ...(typeof o.hubUrl === 'string' ? { hubUrl: o.hubUrl } : {}), ...(typeof o.apiKey === 'string' ? { apiKey: o.apiKey } : {}) }); });
+    handle('clear-outbox', () => manager.clearOutbox());
+    handle('resend', (id: unknown) => manager.resend(typeof id === 'string' ? id : undefined));
+    handle('drop', (id: unknown) => manager.dropAttention(String(id ?? '')));
+    handle('suspect', (id: unknown, answer: unknown) => manager.answerSuspect(String(id ?? ''), answer === true ? true : answer === false ? false : 'ignore'));
+    // 「打开」 on the card, after the confirmation card: record the consent, then switch the plugin on.
+    handle('enable', async (consent: unknown) => {
+      if (consent !== true) throw new Error('请先看完确认卡，点「我知道了，打开」。');
+      await manager.confirm(); await manager.setPluginState(pluginState(await pluginManager.setEnabled('flywheel-connect', true))); syncHooks();
+      return manager.view();
     });
-
-    addContextAugmenter(async (ctx, query) => {
-      if (!flywheelManager || !query) return ctx;
-      const matched = flywheelManager.matchKeywordForReply('', query);
-      if (matched?.matched) {
-        return {
-          ...ctx,
-          instructions: `${ctx.instructions}\n【来源提示】${matched.contextPrompt}`,
-        };
-      }
-      return ctx;
+    handle('disable', async () => {
+      await manager.setPluginState(pluginState(await pluginManager.setEnabled('flywheel-connect', false))); syncHooks();
+      return manager.view();
     });
-
-    ipcMain.handle('flowdesk:flywheel:state', async event => {
-      trusted(event);
-      if (!flywheelManager) throw new Error('飞轮插件未就绪');
-      return {
-        config: flywheelManager.getConfig(),
-        state: flywheelManager.getState(),
-      };
-    });
-    ipcMain.handle('flowdesk:flywheel:save', async (event, patch) => {
-      trusted(event);
-      if (!flywheelManager) throw new Error('飞轮插件未就绪');
-      return await flywheelManager.setConfig((patch ?? {}) as Record<string, unknown>);
-    });
-    ipcMain.handle('flowdesk:flywheel:test', async (event, options) => {
-      trusted(event);
-      if (!flywheelManager) throw new Error('飞轮插件未就绪');
-      return await flywheelManager.testConnection(options?.hubUrl, options?.apiKey);
-    });
-    ipcMain.handle('flowdesk:flywheel:clear-outbox', async event => {
-      trusted(event);
-      if (!flywheelManager) throw new Error('飞轮插件未就绪');
-      await flywheelManager.clearOutbox();
-      return flywheelManager.getState();
-    });
-  } catch {
-    // optional
+  } catch (error) {
+    console.warn('FLYWHEEL CONNECT LOAD FAILED:', error instanceof Error ? error.message : error);
   }
 
   // 开放 MCP IPC

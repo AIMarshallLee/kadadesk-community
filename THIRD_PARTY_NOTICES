@@ -49,4 +49,9 @@ This project incorporates components from third-party open-source software, list
     - License: MIT License
     - Reference: licenses/third-party/readable-web-to-node-stream-3.0.4.txt
 
+12. **Ajv JSON schema validator (ajv) and its dependencies fast-deep-equal, json-schema-traverse, require-from-string, fast-uri**
+    - License: MIT License (fast-uri: BSD 3-Clause License)
+    - Copyright (c) 2015-2021 Evgeny Poberezkin; fast-uri: Copyright (c) 2021-present The Fastify team
+    - Used to check every 增长飞轮 (flywheel.v1) event against its schema before it is sent.
+
 For additional third-party license texts, please inspect the `licenses/third-party/` directory.

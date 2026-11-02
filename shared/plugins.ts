@@ -4,7 +4,7 @@
  * Safety rules: nothing a plugin brings goes live without the owner's existing review; no plugin replies to
  * customers directly; tools that write need the owner's approval every time; tool output is untrusted data.
  */
-export const PLUGIN_PERMISSIONS = ['knowledge.read', 'knowledge.suggest', 'reception.status', 'model.call', 'notify.owner', 'tools.read', 'tools.write', 'customer.reply'] as const;
+export const PLUGIN_PERMISSIONS = ['knowledge.read', 'knowledge.suggest', 'reception.status', 'model.call', 'notify.owner', 'tools.read', 'tools.write', 'customer.reply', 'network.outbound', 'customer.profile.read'] as const;
 export type PluginPermission = typeof PLUGIN_PERMISSIONS[number];
 export type PluginKind = 'content' | 'tool' | 'automation';
 
@@ -17,7 +17,11 @@ export const PERMISSION_LABELS: Record<PluginPermission, string> = {
   'tools.read': '用只读工具查信息（比如订单、物流），查到的内容只作参考资料',
   'tools.write': '用会写入的工具（比如改订单、登记预约），每次都要你点同意',
   'customer.reply': '直接回复客户（这一版不开放：装了也不会生效）',
+  'network.outbound': '把接待事件发到你填的事件中心地址（不发聊天原文；只有咔哒内置插件能要这个权限）',
+  'customer.profile.read': '读取客户档案里的画像（意向、行业、城市、需求、预算、时间、是否拍板），不读敏感信息和原话',
 };
+/** Permissions only the plugins built into kadadesk may hold (they connect to the outside or read customer profiles). */
+export const OFFICIAL_ONLY_PERMISSIONS: readonly PluginPermission[] = ['network.outbound', 'customer.profile.read'];
 export const KIND_LABELS: Record<PluginKind, string> = { content: '内容包', tool: '工具', automation: '自动化' };
 
 export interface PluginKnowledgeItem { question: string; answer: string; title?: string; tags?: string[] }
@@ -51,6 +55,8 @@ export interface PluginToolSetting { name: string; description: string; inputSch
 export interface PluginView {
   manifest: PluginManifest; enabled: boolean; installedAt: string; updatedAt: string; lastError?: string; failures: number;
   tools: PluginToolSetting[]; local?: boolean; dataFile?: string; created: { knowledge: number; workflows: number };
+  /** Installed from BUILTIN_PLUGINS (ships with kadadesk), not from a file someone gave you. */
+  builtin?: boolean;
 }
 export interface PluginApproval { id: string; pluginId: string; pluginName: string; tool: string; input: string; reason: string; askedAt: string }
 export type EvolutionKind = 'gap' | 'phrase' | 'automation';
@@ -62,6 +68,8 @@ export interface PluginsBridge {
   state(): Promise<PluginsView>;
   preview(text: string): Promise<PluginPreview>;
   install(text: string, consent: boolean): Promise<PluginsView>;
+  /** Installs a plugin that ships with kadadesk (BUILTIN_PLUGINS), after the same permission consent. */
+  installBuiltin(id: string, consent: boolean): Promise<PluginsView>;
   setEnabled(id: string, enabled: boolean): Promise<PluginsView>;
   uninstall(id: string): Promise<PluginsView>;
   undo(): Promise<PluginsView>;
@@ -182,6 +190,9 @@ export function validateManifest(input: unknown): PluginManifest {
     }
     return fail('server.transport 只能是 stdio 或 http');
   }
+  // Built-in service plugins (连接增长飞轮) bring their behaviour with the app and have no rules; the plugin manager
+  // refuses a rule-less automation from anywhere else.
+  if (m.rules === undefined || (Array.isArray(m.rules) && !m.rules.length)) return { ...base, rules: [] };
   if (!Array.isArray(m.rules) || !m.rules.length || m.rules.length > 50) fail('自动化插件要有 1～50 条规则（rules）');
   const rules = (m.rules as unknown[]).map((r, i) => validRule(r, i));
   if (new Set(rules.map(r => r.id)).size !== rules.length) fail('规则编号（id）不能重复');
@@ -196,6 +207,7 @@ export function manifestWarnings(m: PluginManifest): string[] {
   if (m.server?.transport === 'stdio') out.push(`这个插件会在你的电脑上运行命令：${[m.server.command, ...(m.server.args ?? [])].join(' ').slice(0, 200)}。只装你信得过的插件。`);
   if (m.server?.transport === 'http') out.push(`这个插件会连接：${m.server.url}。触发关键词时，客户那条消息的文字会发给它。`);
   if (m.kind === 'content') out.push('内容会先放进「待审核」，你审核启用后咔哒才会用。');
+  if (m.permissions.includes('network.outbound')) out.push('装好后默认是关着的：在插件卡片上点「打开」，看清楚会发什么、不会发什么，确认后才开始。');
   if (m.permissions.includes('model.call')) out.push('使用模型会产生费用（按你配置的模型计费）。');
   return out;
 }
@@ -209,3 +221,15 @@ export function singleStringParam(schema: unknown): string | undefined {
   const required = Array.isArray(schema.required) ? schema.required : [];
   return required.every(r => r === keys[0]) ? keys[0] : undefined;
 }
+
+/**
+ * Plugins that ship with kadadesk (their behaviour is code in the app, not in the manifest). They are not installed
+ * by default: the 插件 page offers them, and installing asks for the same permission consent as any plugin.
+ */
+export const BUILTIN_PLUGINS: readonly PluginManifest[] = [
+  {
+    id: 'flywheel-connect', name: '连接增长飞轮', version: '1.1.0', author: '咔哒团队', kind: 'automation',
+    description: '把客户档案的画像和客户来源打通到增长飞轮事件中心（或你自己的），不发聊天原文，默认关闭。',
+    permissions: ['network.outbound', 'customer.profile.read'], rules: [],
+  },
+];

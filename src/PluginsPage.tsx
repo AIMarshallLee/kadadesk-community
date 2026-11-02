@@ -3,10 +3,11 @@ import { Blocks, FileUp, ClipboardPaste, Undo2, ShieldCheck, Wrench, Zap, BookOp
 import { PageHead, Button } from './components';
 import { navigate } from './api';
 import {
-  ACTION_LABELS, KIND_LABELS, PERMISSION_LABELS, TRIGGER_LABELS, singleStringParam,
+  ACTION_LABELS, BUILTIN_PLUGINS, KIND_LABELS, PERMISSION_LABELS, TRIGGER_LABELS, manifestWarnings, singleStringParam,
   type AutomationAction, type AutomationRule, type PluginPreview, type PluginsView, type PluginView, type EvolutionSuggestion,
 } from '../shared/plugins';
 import type { ReplyPersona } from '../shared/desktop-replies';
+import type { FlywheelView } from '../shared/flywheel/types';
 import Tutorial from './Tutorial';
 import './plugins.css';
 
@@ -49,6 +50,7 @@ export default function PluginsPage({ notify }: { notify: Notify }) {
       </div>)}
     </section>}
     <Installer busy={busy} act={act} notify={notify} />
+    <BuiltinPlugins view={view} busy={busy} act={act} />
     <section className="pl-list" aria-label="已装的插件">
       <h3 className="pl-heading"><Blocks size={16} />已装的插件（{view.plugins.length}）</h3>
       {!view.plugins.length && <p className="muted">还没有装插件。可以先「新建一个自动化」，比如客户提到退款就提醒你。</p>}
@@ -109,14 +111,14 @@ function Installer({ busy, act, notify }: { busy: boolean; act: (w: () => Promis
 }
 
 function PluginCard({ plugin: p, plugins, busy, act, notify }: { plugin: PluginView; plugins: PluginView[]; busy: boolean; act: (w: () => Promise<PluginsView | undefined>, done?: string) => Promise<void>; notify: Notify }) {
-  const m = p.manifest, Icon = m.kind === 'tool' ? Wrench : m.kind === 'automation' ? Zap : BookOpen;
+  const m = p.manifest, flywheel = m.id === 'flywheel-connect' && !!p.builtin, Icon = m.kind === 'tool' ? Wrench : m.kind === 'automation' ? Zap : BookOpen;
   const tone = m.content?.style?.tone;
   const applyTone = async () => {
     try { const r = window.flowdesk?.desktopReplies as any; if (!r || !tone) return; const s = await r.state(); if (s.status === 'running') return notify('请先暂停接待，再换语气。', true); await r.saveConfig?.({ ...s.config, persona: { ...(s.config?.persona ?? {}), tone } }); notify(`回复语气已改成「${TONE[tone]}」，可以在「接待 → 人设与语气」再改。`); } catch (e) { notify((e as Error).message, true); }
   };
   return <article className={`panel pl-card${p.enabled ? '' : ' is-off'}`}>
-    <header><span className="pl-icon"><Icon size={17} /></span><div><strong>{m.name}</strong><small className="muted">{KIND_LABELS[m.kind]} · v{m.version} · {m.author}{p.local ? ' · 你自己建的' : ''}</small></div>
-      <label className="pl-switch"><input type="checkbox" checked={p.enabled} disabled={busy} onChange={e => void act(() => bridge()!.setEnabled(m.id, e.target.checked), e.target.checked ? '已启用' : '已停用')} />{p.enabled ? '已启用' : '已停用'}</label>
+    <header><span className="pl-icon"><Icon size={17} /></span><div><strong>{m.name}</strong><small className="muted">{KIND_LABELS[m.kind]} · v{m.version} · {m.author}{p.local ? ' · 你自己建的' : ''}{p.builtin ? ' · 咔哒内置' : ''}</small></div>
+      {flywheel ? <span className="pl-switch">{p.enabled ? '已启用' : '已停用'}</span> : <label className="pl-switch"><input type="checkbox" checked={p.enabled} disabled={busy} onChange={e => void act(() => bridge()!.setEnabled(m.id, e.target.checked), e.target.checked ? '已启用' : '已停用')} />{p.enabled ? '已启用' : '已停用'}</label>}
       <Button variant="ghost" disabled={busy} aria-label={`卸载 ${m.name}`} onClick={() => { if (window.confirm(`卸载「${m.name}」？之后也能点「撤销上一步」找回。`)) void act(() => bridge()!.uninstall(m.id), '已卸载'); }}><Trash2 size={15} /></Button></header>
     <p className="muted">{m.description}</p>
     {p.lastError && <p className="notice pl-error">上次出错：{p.lastError}{p.failures >= 3 && !p.enabled ? '（已自动停用）' : ''}</p>}
@@ -126,8 +128,8 @@ function PluginCard({ plugin: p, plugins, busy, act, notify }: { plugin: PluginV
       <div className="pl-actions"><Button variant="secondary" onClick={() => navigate('knowledge/import')}>去审核</Button>{p.created.workflows > 0 && <Button variant="ghost" onClick={() => navigate('workflows')}>看工作流</Button>}{tone && <Button variant="ghost" disabled={busy} onClick={() => void applyTone()}>用这个语气（{TONE[tone]}）</Button>}</div>
     </div>}
     {m.kind === 'tool' && <ToolList plugin={p} busy={busy} act={act} />}
-    {m.kind === 'automation' && <RuleEditor plugin={p} plugins={plugins} busy={busy} act={act} />}
-    {m.id === 'official.flywheel-connect' && p.enabled && <FlywheelConnectSettingsCard notify={notify} />}
+    {flywheel && <FlywheelConnectSettingsCard plugin={p} notify={notify} refresh={() => void act(() => bridge()!.state())} />}
+    {!p.builtin && m.kind === 'automation' && <RuleEditor plugin={p} plugins={plugins} busy={busy} act={act} />}
   </article>;
 }
 
@@ -210,229 +212,120 @@ export function EvolutionCard({ view: given, busy: givenBusy, act: givenAct }: {
   </section>;
 }
 
-function FlywheelConnectSettingsCard({ notify }: { notify: Notify }) {
-  const [data, setData] = useState<{
-    config: {
-      enabled: boolean;
-      hubUrl: string;
-      apiKey: string;
-      workspaceId: string;
-      sendReceptionEvents: boolean;
-      sendProfileUpdates: boolean;
-      receiveExternalLeads: boolean;
-      receiveSalesStages: boolean;
-    };
-    state: {
-      sentCount: number;
-      pendingCount: number;
-      errorCount: number;
-      lastSuccessAt?: string;
-      lastError?: string;
-      lastFeedCursor?: string;
-      lastKeywordsSyncAt?: string;
-    };
-  }>();
+/** Plugins that ship with kadadesk and are not installed yet: the same permission consent as any plugin. */
+function BuiltinPlugins({ view, busy, act }: { view: PluginsView; busy: boolean; act: (w: () => Promise<PluginsView | undefined>, done?: string) => Promise<void> }) {
+  const [asking, setAsking] = useState<string>();
+  const available = BUILTIN_PLUGINS.filter(m => !view.plugins.some(p => p.manifest.id === m.id));
+  if (!available.length) return null;
+  return <section className="panel pl-panel" aria-label="内置插件">
+    <h3><Blocks size={16} />咔哒内置插件（还没装）</h3>
+    {available.map(m => <div key={m.id} className="pl-row pl-builtin">
+      <div><strong>{m.name}</strong><small className="muted">{m.description}</small></div>
+      {asking === m.id
+        ? <div className="pl-consent" role="dialog" aria-label={`确认安装 ${m.name}`}>
+          <p><b>它要这些权限：</b></p>
+          <ul>{m.permissions.map(x => <li key={x}>{PERMISSION_LABELS[x]}</li>)}</ul>
+          {manifestWarnings(m).map(w => <p key={w} className="notice">{w}</p>)}
+          <div className="pl-actions"><Button disabled={busy} onClick={() => void act(async () => { const v = await bridge()!.installBuiltin(m.id, true); setAsking(undefined); return v; }, `已安装「${m.name}」`)}>同意并安装</Button><Button variant="ghost" disabled={busy} onClick={() => setAsking(undefined)}>取消</Button></div>
+        </div>
+        : <div className="pl-actions"><Button variant="secondary" disabled={busy} onClick={() => setAsking(m.id)}>安装</Button></div>}
+    </div>)}
+  </section>;
+}
 
-  const [hubUrlInput, setHubUrlInput] = useState('');
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  const [sendEvents, setSendEvents] = useState(true);
-  const [sendProfiles, setSendProfiles] = useState(true);
-  const [receiveLeads, setReceiveLeads] = useState(true);
-  const [receiveStages, setReceiveStages] = useState(true);
-  const [testing, setTesting] = useState(false);
-  const [pingMsg, setPingMsg] = useState('');
-  const [pingOk, setPingOk] = useState<boolean>();
-  const [saving, setSaving] = useState(false);
-  const [showPrivacyConfirm, setShowPrivacyConfirm] = useState(false);
+const FW_SENDS = [
+  '客户档案里的 7 项画像：意向、行业、城市、需求、预算、打算什么时候买、是不是拍板的人（打开「发送客户画像」时；你在客户档案里改了才发）',
+  '接了接待事件来源时：客户什么时候来消息、多快回复的（只有时间、用时、是咔哒回的还是你回的）',
+  '转人工的原因：只是一个分类（比如「问价」「发了图片」「客户要找人」），不是客户的原话',
+  '客户从哪来：发了哪个扣词（对应哪条内容）',
+];
+const FW_IDENTITY = '身份信息只在客户主动联系过你时才带：备注名，以及客户自己给你的手机号等。你手动录入或导入、还没联系过的客户，只发咔哒的档案编号。';
+const FW_NEVER = ['聊天原文：客户说的话、咔哒和你的回复，一个字都不发', '敏感信息（性别、年龄、身体情况）和原话引用', '密码、验证码、你的模型 Key；手机号、身份证号、银行卡号在文字里出现时一律打码'];
+const FW_RECEIVES = ['别处先认识的客户：咔哒预建档案，标「未接触」；只有名字一样、没有手机号等能确认的信息时，只提醒你确认，不自动合并', '扣词表：客户第一句发扣词时，咔哒知道他是看了哪条内容来的', '销售进展（报价中、已成交……）：起草回复时不再当新客户从头介绍'];
 
-  const bridgeObj = (window as any).flowdesk?.flywheel;
-
-  const load = useCallback(() => {
-    if (!bridgeObj) return;
-    void bridgeObj.state().then((res: any) => {
-      setData(res);
-      setHubUrlInput(res?.config?.hubUrl || '');
-      setSendEvents(res?.config?.sendReceptionEvents !== false);
-      setSendProfiles(res?.config?.sendProfileUpdates !== false);
-      setReceiveLeads(res?.config?.receiveExternalLeads !== false);
-      setReceiveStages(res?.config?.receiveSalesStages !== false);
-    }).catch((e: Error) => notify(e.message, true));
-  }, [bridgeObj, notify]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const onTest = async () => {
-    if (!bridgeObj) return;
-    setTesting(true);
-    setPingMsg('正在测试连接…');
-    setPingOk(undefined);
-    try {
-      const res = await bridgeObj.test({
-        hubUrl: hubUrlInput,
-        apiKey: apiKeyInput || data?.config?.apiKey,
-      });
-      setPingOk(res.ok);
-      setPingMsg(res.message);
-    } catch (e) {
-      setPingOk(false);
-      setPingMsg((e as Error).message || '连接失败，请检查网络与地址');
-    } finally {
-      setTesting(false);
-    }
+/** 连接增长飞轮: switched on only through the confirmation card; the key goes to the encrypted store, the page only sees「已保存」. */
+function FlywheelConnectSettingsCard({ plugin, notify, refresh }: { plugin: PluginView; notify: Notify; refresh: () => void }) {
+  const fw = (window as any).flowdesk?.flywheel;
+  const [v, setV] = useState<FlywheelView>();
+  const [form, setForm] = useState({ hubUrl: '', apiKey: '', workspaceId: 'default', sendReceptionEvents: true, sendProfileUpdates: true, receiveExternalLeads: true, receiveSalesStages: true });
+  const [confirming, setConfirming] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [ping, setPing] = useState<{ ok: boolean; message: string }>();
+  const apply = useCallback((next: FlywheelView) => { setV(next); setForm(f => ({ ...f, ...next.settings, apiKey: '' })); }, []);
+  const load = useCallback(() => { if (fw) void fw.state().then(apply).catch((e: Error) => notify(e.message, true)); }, [fw, apply, notify]);
+  useEffect(() => { load(); const t = setInterval(() => { if (fw) void fw.state().then(setV).catch(() => {}); }, 10000); return () => clearInterval(t); }, [load, fw]);
+  const run = async (work: () => Promise<FlywheelView | undefined>, done?: string, after?: () => void) => {
+    if (working) return; setWorking(true);
+    try { const next = await work(); if (next) { setV(next); } if (done) notify(done); after?.(); } catch (e) { notify((e as Error).message, true); } finally { setWorking(false); }
   };
-
-  const onSave = async () => {
-    if (!bridgeObj) return;
-    setSaving(true);
-    try {
-      await bridgeObj.save({
-        hubUrl: hubUrlInput,
-        ...(apiKeyInput ? { apiKey: apiKeyInput } : {}),
-        sendReceptionEvents: sendEvents,
-        sendProfileUpdates: sendProfiles,
-        receiveExternalLeads: receiveLeads,
-        receiveSalesStages: receiveStages,
-      });
-      setApiKeyInput('');
-      notify('飞轮数据底座对接设置已保存');
-      load();
-    } catch (e) {
-      notify((e as Error).message, true);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const onClearOutbox = async () => {
-    if (!bridgeObj) return;
-    if (!window.confirm('确认清空发件箱中积压的未发送事件？')) return;
-    try {
-      await bridgeObj.clearOutbox();
-      notify('已清空发件箱');
-      load();
-    } catch (e) {
-      notify((e as Error).message, true);
-    }
-  };
-
-  if (!data) return null;
-
-  return (
-    <div className="pl-flywheel-settings" style={{ marginTop: '12px', padding: '14px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <h4 style={{ margin: 0, fontSize: '13px', color: '#1e293b', fontWeight: 'bold' }}>飞轮数据底座对接设置</h4>
-        <button
-          type="button"
-          onClick={() => setShowPrivacyConfirm(!showPrivacyConfirm)}
-          style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: '12px', cursor: 'pointer', padding: 0 }}
-        >
-          {showPrivacyConfirm ? '收起隐私保证' : '查看数据合规与隐私保证'}
-        </button>
-      </div>
-
-      {showPrivacyConfirm && (
-        <div style={{ padding: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', fontSize: '12px', color: '#166534', marginBottom: '12px' }}>
-          <strong>数据合规与零泄露承诺：</strong>
-          <ul style={{ margin: '4px 0 0', paddingLeft: '18px' }}>
-            <li><strong>绝不发送聊天原文</strong>：出站仅为脱敏事件统计与指标，不包含客户消息或回复正文。</li>
-            <li><strong>敏感信息不出站</strong>：绝不发送标有敏感标记的事实、绝不发送原话引用（quote）。</li>
-            <li><strong>零打扰优先</strong>：后台异步传输，客户在等回复或电脑繁忙时自动避让，不影响 1 分钟内必回。</li>
-          </ul>
-        </div>
-      )}
-
-      {/* 状态统计看板 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '12px', background: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-        <div>
-          <div style={{ fontSize: '11px', color: '#64748b' }}>已发送事件</div>
-          <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#0f172a' }}>{data.state.sentCount}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: '11px', color: '#64748b' }}>队列待发</div>
-          <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#d97706' }}>{data.state.pendingCount}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: '11px', color: '#64748b' }}>出错丢弃</div>
-          <div style={{ fontSize: '15px', fontWeight: 'bold', color: data.state.errorCount > 0 ? '#dc2626' : '#64748b' }}>{data.state.errorCount}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: '11px', color: '#64748b' }}>最近成功</div>
-          <div style={{ fontSize: '12px', color: '#334155', marginTop: '2px' }}>
-            {data.state.lastSuccessAt ? new Date(data.state.lastSuccessAt).toLocaleTimeString() : '尚未同步'}
-          </div>
-        </div>
-      </div>
-
-      {data.state.lastError && (
-        <div style={{ padding: '6px 10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '4px', fontSize: '12px', color: '#b91c1c', marginBottom: '10px' }}>
-          <strong>提示：</strong>{data.state.lastError}
-        </div>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div>
-          <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px', color: '#475569' }}>事件中心地址：</label>
-          <input
-            style={{ width: '100%', maxWidth: '420px', padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-            placeholder="例如 https://flywheel.example.com"
-            value={hubUrlInput}
-            onChange={e => setHubUrlInput(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px', color: '#475569' }}>
-            对接密钥（存系统钥匙串）：
-            {data.config.apiKey && <span style={{ color: '#16a34a', marginLeft: '6px' }}>已配置密钥</span>}
-          </label>
-          <input
-            type="password"
-            style={{ width: '100%', maxWidth: '420px', padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-            placeholder={data.config.apiKey ? '留空保持原有密钥不变' : '粘贴事件中心分配给咔哒的来源密钥'}
-            value={apiKeyInput}
-            onChange={e => setApiKeyInput(e.target.value)}
-          />
-        </div>
-
-        {/* 细粒度开关 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', margin: '4px 0' }}>
-          <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: '#334155' }}>
-            <input type="checkbox" checked={sendEvents} onChange={e => setSendEvents(e.target.checked)} />
-            发送接待事件（进线、首响、转人工）
-          </label>
-          <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: '#334155' }}>
-            <input type="checkbox" checked={sendProfiles} onChange={e => setSendProfiles(e.target.checked)} />
-            发送客户画像（意向、预算、需求等）
-          </label>
-          <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: '#334155' }}>
-            <input type="checkbox" checked={receiveLeads} onChange={e => setReceiveLeads(e.target.checked)} />
-            接收别处来的客户与扣词来源
-          </label>
-          <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', color: '#334155' }}>
-            <input type="checkbox" checked={receiveStages} onChange={e => setReceiveStages(e.target.checked)} />
-            接收销售进展与商机阶段
-          </label>
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '6px' }}>
-          <Button variant="secondary" disabled={testing || saving} onClick={onTest}>
-            {testing ? '正在测试…' : '测试连接'}
-          </Button>
-          <Button disabled={saving || testing} onClick={onSave}>
-            {saving ? '保存中…' : '保存设置'}
-          </Button>
-          {data.state.pendingCount > 0 && (
-            <Button variant="ghost" onClick={onClearOutbox}>
-              清空待发队列
-            </Button>
-          )}
-          {pingMsg && (
-            <span style={{ fontSize: '13px', color: pingOk ? '#16a34a' : '#dc2626' }}>
-              {pingMsg}
-            </span>
-          )}
-        </div>
-      </div>
+  if (!fw || !v) return null;
+  const on = v.active;
+  const when = (iso?: string) => iso ? new Date(iso).toLocaleString('zh-CN', { hour12: false }) : '还没有';
+  return <div className="pl-fw">
+    <div className="pl-fw-head">
+      <strong>{on ? '已打开：在后台收发，不调用模型、不动鼠标键盘' : '现在是关着的：什么都不发、也不收'}</strong>
+      {on
+        ? <Button variant="secondary" disabled={working} onClick={() => void run(() => fw.disable(), '已关闭「连接增长飞轮」：马上停止收发，待发的事件留在电脑上', refresh)}>关闭</Button>
+        : <Button disabled={working || confirming} onClick={() => setConfirming(true)}>打开</Button>}
     </div>
-  );
+    {confirming && <div className="pl-fw-confirm" role="dialog" aria-label="打开连接增长飞轮前确认">
+      <p><b>打开后，咔哒会把这些发到你填的事件中心：</b></p>
+      <ul>{FW_SENDS.map(x => <li key={x}>{x}</li>)}</ul>
+      <p className="muted">{FW_IDENTITY}</p>
+      <p><b>永远不会发：</b></p>
+      <ul>{FW_NEVER.map(x => <li key={x}>{x}</li>)}</ul>
+      <p><b>会从事件中心收回：</b></p>
+      <ul>{FW_RECEIVES.map(x => <li key={x}>{x}</li>)}</ul>
+      <p className="muted">不调用模型、不动鼠标键盘。关闭后马上停止，待发的事件留在电脑上，可以一键清空；卸载插件会删掉密钥、确认记录和待发事件。</p>
+      <div className="pl-actions">
+        <Button disabled={working} onClick={() => void run(async () => { const r = await fw.enable(true); setConfirming(false); return r; }, '已打开「连接增长飞轮」', refresh)}>我知道了，打开</Button>
+        <Button variant="ghost" disabled={working} onClick={() => setConfirming(false)}>先不打开</Button>
+      </div>
+    </div>}
+    <div className="pl-fw-stats" aria-label="收发情况">
+      <div><small>已发送</small><b>{v.sent}</b></div>
+      <div><small>待发送</small><b>{v.pending}</b></div>
+      <div><small>需要处理</small><b className={v.attention ? 'is-bad' : ''}>{v.attention}</b></div>
+      <div><small>出错</small><b className={v.errors ? 'is-bad' : ''}>{v.errors}</b></div>
+      <div className="pl-fw-wide"><small>最后一次成功</small><span>{when(v.lastSuccessAt)}</span></div>
+    </div>
+    {(v.pausedReason || v.lastError) && <p className="notice pl-error">{v.pausedReason ?? v.lastError}</p>}
+    {v.suspects.length > 0 && <div className="pl-fw-list" aria-label="疑似同一人">
+      <p><b>可能是同一位客户（咔哒没有合并，请你确认）</b></p>
+      {v.suspects.map(x => <div key={x.id} className="pl-fw-row">
+        <span>{x.kind === 'pair' ? <>档案「{x.displayName}」和「{x.candidateName}」的手机号或增长飞轮客户编号一样</> : <>「{x.displayName}」（{x.via}）和档案里的「{x.candidateName}」名字一样</>}</span>
+        <span className="pl-actions">
+          <Button variant="secondary" disabled={working} onClick={() => void run(() => fw.suspect(x.id, true), '已合并到同一个档案')}>是同一人</Button>
+          <Button variant="ghost" disabled={working} onClick={() => void run(() => fw.suspect(x.id, false), x.kind === 'pair' ? '两个档案都保留' : '已另建一个档案')}>不是</Button>
+          <Button variant="ghost" disabled={working} onClick={() => void run(() => fw.suspect(x.id, 'ignore'))}>忽略</Button>
+        </span>
+      </div>)}
+    </div>}
+    {v.attentionItems.length > 0 && <div className="pl-fw-list" aria-label="需要处理">
+      <p><b>需要处理</b>（事件中心没收下的，不会自动重发）</p>
+      {v.attentionItems.slice(0, 10).map(x => <div key={x.id} className="pl-fw-row">
+        <span>{when(x.at)} · {x.reason}</span>
+        <span className="pl-actions"><Button variant="secondary" disabled={working} onClick={() => void run(() => fw.resend(x.id), '已放回待发送')}>重新发送</Button><Button variant="ghost" disabled={working} onClick={() => void run(() => fw.drop(x.id))}>删掉</Button></span>
+      </div>)}
+      {v.attentionItems.length > 1 && <Button variant="ghost" disabled={working} onClick={() => void run(() => fw.resend(), '已全部放回待发送')}>全部重新发送</Button>}
+    </div>}
+    <div className="pl-fw-form">
+      <label>事件中心地址<input value={form.hubUrl} placeholder="例如 https://你的事件中心地址" onChange={e => setForm({ ...form, hubUrl: e.target.value })} /></label>
+      <label>密钥 {v.apiKeyConfigured && <small className="pl-fw-ok">已加密保存在这台电脑</small>}<input type="password" autoComplete="off" value={form.apiKey} disabled={!v.keyStoreAvailable} placeholder={!v.keyStoreAvailable ? '这台电脑没有可用的加密存储，不能保存密钥' : v.apiKeyConfigured ? '不改就留空' : '粘贴事件中心给咔哒的密钥'} onChange={e => setForm({ ...form, apiKey: e.target.value })} /></label>
+      <details><summary>工作区编号（按事件中心给你的填）</summary><input value={form.workspaceId} aria-label="工作区编号" onChange={e => setForm({ ...form, workspaceId: e.target.value })} /></details>
+      <div className="pl-fw-toggles">
+        <label className="pl-check"><input type="checkbox" checked={form.sendReceptionEvents} onChange={e => setForm({ ...form, sendReceptionEvents: e.target.checked })} />发送接待事件</label>
+        <label className="pl-check"><input type="checkbox" checked={form.sendProfileUpdates} onChange={e => setForm({ ...form, sendProfileUpdates: e.target.checked })} />发送客户画像</label>
+        <label className="pl-check"><input type="checkbox" checked={form.receiveExternalLeads} onChange={e => setForm({ ...form, receiveExternalLeads: e.target.checked })} />接收别处来的客户</label>
+        <label className="pl-check"><input type="checkbox" checked={form.receiveSalesStages} onChange={e => setForm({ ...form, receiveSalesStages: e.target.checked })} />接收销售进展</label>
+      </div>
+      <div className="pl-actions">
+        <Button variant="secondary" disabled={working} onClick={() => void run(async () => { const r = await fw.test({ hubUrl: form.hubUrl, ...(form.apiKey ? { apiKey: form.apiKey } : {}) }); setPing(r); return undefined; })}>测试连接</Button>
+        <Button disabled={working} onClick={() => void run(async () => { const r = await fw.save({ ...form, ...(form.apiKey ? {} : { apiKey: undefined }) }); setForm(f => ({ ...f, apiKey: '' })); return r; }, '已保存')}>保存</Button>
+        {(v.pending + v.attention) > 0 && <Button variant="ghost" disabled={working} onClick={() => { if (window.confirm(`清空电脑上待发送和需要处理的 ${v.pending + v.attention} 条事件？清空后不会再发。`)) void run(() => fw.clearOutbox(), '已清空'); }}>一键清空待发</Button>}
+      </div>
+      {ping && <p className={ping.ok ? 'pl-fw-ok' : 'notice pl-error'}>{ping.message}</p>}
+      <p className="muted pl-fw-note">扣词表 {v.keywords} 个（{v.lastKeywordsSyncAt ? `更新于 ${when(v.lastKeywordsSyncAt)}` : '还没拉到'}）{plugin.enabled && !v.consented ? ' · 还没确认，请点「打开」看确认卡' : ''}</p>
+    </div>
+  </div>;
 }

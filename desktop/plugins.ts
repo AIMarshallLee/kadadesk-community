@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { createMcpClient, type McpClient, type McpClientOptions } from './mcp-client';
 import type { ApiRequest, Knowledge, Workflow } from '../shared/types';
 import {
-  manifestWarnings, PERMISSION_LABELS, rulePermissions, singleStringParam, validateManifest, validRule,
+  BUILTIN_PLUGINS, manifestWarnings, OFFICIAL_ONLY_PERMISSIONS, PERMISSION_LABELS, rulePermissions, singleStringParam, validateManifest, validRule,
   type AutomationRule, type EvolutionSuggestion, type PluginApproval, type PluginManifest, type PluginPermission, type PluginPreview,
   type PluginServer, type PluginToolSetting, type PluginsView,
 } from '../shared/plugins';
@@ -38,6 +38,8 @@ const MAX_FAILURES = 3, MAX_SNAPSHOTS = 20, MAX_EDITS = 200, MAX_CONTEXT_TOOLS =
 interface StoredPlugin {
   manifest: PluginManifest; enabled: boolean; installedAt: string; updatedAt: string; lastError?: string; failures: number;
   tools: PluginToolSetting[]; local?: boolean; created: { knowledgeIds: string[]; workflowIds: string[] };
+  /** Installed from BUILTIN_PLUGINS (ships with kadadesk). */
+  builtin?: boolean;
 }
 interface Undoable { plugins: StoredPlugin[]; evolution: { lastRunAt?: string; suggestions: EvolutionSuggestion[]; adopted: string[]; dismissed: string[] } }
 interface Snapshot { label: string; at: string; before: Undoable; created: { knowledgeIds: string[]; workflowIds: string[] } }
@@ -54,6 +56,8 @@ export interface PluginManagerDeps {
   createClient?(server: PluginServer, options: McpClientOptions): McpClient;
   log?(event: string, detail: Record<string, unknown>): void;
   now?(): number;
+  /** Called after every saved change (install, switch, uninstall, undo): built-in plugins (连接增长飞轮) follow it. */
+  onChange?(view: PluginsView): void;
 }
 
 const empty = (): StoredIndex => ({ version: 1, plugins: [], approvals: [], snapshots: [], daily: {}, evolution: { suggestions: [], adopted: [], dismissed: [] } });
@@ -92,7 +96,7 @@ export async function createPluginManager(deps: PluginManagerDeps) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') await rename(indexPath, `${indexPath}.corrupt-${now()}`).catch(() => {});
   }
   let writeTail = Promise.resolve();
-  const save = () => { const next = writeTail.then(async () => { await mkdir(dir, { recursive: true }); const tmp = `${indexPath}.tmp`; await writeFile(tmp, JSON.stringify(index, null, 1), 'utf8'); await rename(tmp, indexPath); }); writeTail = next.catch(() => {}); return next; };
+  const save = () => { const next = writeTail.then(async () => { await mkdir(dir, { recursive: true }); const tmp = `${indexPath}.tmp`; await writeFile(tmp, JSON.stringify(index, null, 1), 'utf8'); await rename(tmp, indexPath); }); writeTail = next.catch(() => {}); next.then(() => { try { deps.onChange?.(view()); } catch { /* listeners never break the plugin page */ } }, () => {}); return next; };
   let chain: Promise<unknown> = Promise.resolve();
   const serial = <T>(fn: () => Promise<T>) => { const next = chain.then(fn); chain = next.catch(() => {}); return next; };
   const clients = new Map<string, { server: PluginServer; client: McpClient }>();
@@ -213,7 +217,7 @@ export async function createPluginManager(deps: PluginManagerDeps) {
   };
 
   const view = (): PluginsView => ({
-    plugins: index.plugins.map(p => ({ manifest: clone(p.manifest), enabled: p.enabled, installedAt: p.installedAt, updatedAt: p.updatedAt, ...(p.lastError ? { lastError: p.lastError } : {}), failures: p.failures ?? 0, tools: clone(p.tools), ...(p.local ? { local: true } : {}), ...((p.manifest.rules ?? []).some(r => r.then.some(a => a.type === 'csv')) ? { dataFile: join(dir, p.manifest.id, 'records.csv') } : {}), created: { knowledge: p.created.knowledgeIds.length, workflows: p.created.workflowIds.length } })),
+    plugins: index.plugins.map(p => ({ manifest: clone(p.manifest), enabled: p.enabled, installedAt: p.installedAt, updatedAt: p.updatedAt, ...(p.lastError ? { lastError: p.lastError } : {}), failures: p.failures ?? 0, tools: clone(p.tools), ...(p.local ? { local: true } : {}), ...(p.builtin ? { builtin: true } : {}), ...((p.manifest.rules ?? []).some(r => r.then.some(a => a.type === 'csv')) ? { dataFile: join(dir, p.manifest.id, 'records.csv') } : {}), created: { knowledge: p.created.knowledgeIds.length, workflows: p.created.workflowIds.length } })),
     approvals: index.approvals.map(({ args: _args, ...a }) => a),
     ...(index.snapshots.length ? { undo: { label: index.snapshots.at(-1)!.label, at: index.snapshots.at(-1)!.at } } : {}),
     evolution: { ...(index.evolution.lastRunAt ? { lastRunAt: index.evolution.lastRunAt } : {}), suggestions: index.evolution.suggestions.filter(s => !index.evolution.adopted.includes(s.id) && !index.evolution.dismissed.includes(s.id)) },
@@ -248,10 +252,25 @@ export async function createPluginManager(deps: PluginManagerDeps) {
     p.updatedAt = iso(); await save();
   };
 
+  const installManifest = async (manifest: PluginManifest, builtin: boolean) => {
+    let installed: StoredPlugin | undefined;
+    await change(`安装「${manifest.name}」`, async created => {
+      const old = find(manifest.id); if (old) { closeClient(old.manifest.id); index.plugins = index.plugins.filter(p => p !== old); }
+      const startOff = manifest.permissions.includes('network.outbound');
+      installed = { manifest, enabled: startOff ? (old?.enabled ?? false) : true, installedAt: old?.installedAt ?? iso(), updatedAt: iso(), failures: 0, tools: manifest.kind === 'tool' ? (old?.tools ?? []) : [], created, ...(builtin ? { builtin: true } : {}) };
+      await importContent(manifest, created);
+      index.plugins.push(installed); await writeManifest(installed);
+    });
+    if (installed?.manifest.kind === 'tool') await listTools(installed).catch(() => { /* shown as the plugin's last error */ });
+    return view();
+  };
+
   return {
     view,
     preview(text: unknown): PluginPreview {
       const manifest = validateManifest(text);
+      const officialOnly = manifest.permissions.filter(x => OFFICIAL_ONLY_PERMISSIONS.includes(x));
+      if (officialOnly.length) throw new Error(`「${PERMISSION_LABELS[officialOnly[0]!]}」只有咔哒内置插件能要，这个插件不能安装。`);
       const old = find(manifest.id), warnings = manifestWarnings(manifest);
       for (const r of manifest.rules ?? []) for (const a of r.then) if (a.type === 'tool' && !find(a.plugin)) warnings.push(`规则「${r.name ?? r.id}」要用的工具插件「${a.plugin}」还没装，装好前这一步会失败。`);
       return { manifest, permissions: manifest.permissions.map(id => ({ id, label: PERMISSION_LABELS[id] })), warnings, ...(old ? { replaces: old.manifest.version } : {}) };
@@ -259,15 +278,17 @@ export async function createPluginManager(deps: PluginManagerDeps) {
     async install(text: unknown, consent: unknown) {
       if (consent !== true) throw new Error('请先看清楚插件要的权限，点「同意并安装」后才能安装。');
       const manifest = validateManifest(text);
-      let installed: StoredPlugin | undefined;
-      await change(`安装「${manifest.name}」`, async created => {
-        const old = find(manifest.id); if (old) { closeClient(old.manifest.id); index.plugins = index.plugins.filter(p => p !== old); }
-        installed = { manifest, enabled: true, installedAt: old?.installedAt ?? iso(), updatedAt: iso(), failures: 0, tools: manifest.kind === 'tool' ? (old?.tools ?? []) : [], created };
-        await importContent(manifest, created);
-        index.plugins.push(installed); await writeManifest(installed);
-      });
-      if (installed?.manifest.kind === 'tool') await listTools(installed).catch(() => { /* shown as the plugin's last error */ });
-      return view();
+      const officialOnly = manifest.permissions.filter(x => OFFICIAL_ONLY_PERMISSIONS.includes(x));
+      if (officialOnly.length) throw new Error(`「${PERMISSION_LABELS[officialOnly[0]!]}」只有咔哒内置插件能要，这个插件不能安装。`);
+      if (manifest.kind === 'automation' && !(manifest.rules ?? []).length) throw new Error('自动化插件要有 1～50 条规则（rules）');
+      if (find(manifest.id)?.builtin) throw new Error('这个编号是咔哒内置插件的，不能用别的文件替换。');
+      return installManifest(manifest, false);
+    },
+    /** A plugin that ships with kadadesk. One that sends data out starts switched off: its own card turns it on after a confirmation. */
+    async installBuiltin(id: unknown, consent: unknown) {
+      if (consent !== true) throw new Error('请先看清楚插件要的权限，点「同意并安装」后才能安装。');
+      const manifest = BUILTIN_PLUGINS.find(m => m.id === id); if (!manifest) throw new Error('没有这个内置插件');
+      return installManifest(validateManifest(clone(manifest)), true);
     },
     async setEnabled(id: unknown, enabled: unknown) {
       const p = need(id); if (typeof enabled !== 'boolean') throw new Error('设置无效');
@@ -302,6 +323,7 @@ export async function createPluginManager(deps: PluginManagerDeps) {
     },
     async saveRules(id: unknown, rules: unknown) {
       const p = need(id); if (p.manifest.kind !== 'automation') throw new Error('这不是自动化插件');
+      if (p.builtin) throw new Error('内置插件没有规则可以改。');
       if (!Array.isArray(rules) || !rules.length || rules.length > 50) throw new Error('要有 1～50 条规则');
       const valid: AutomationRule[] = rules.map((r, i) => validRule(r, i));
       if (new Set(valid.map(r => r.id)).size !== valid.length) throw new Error('规则编号不能重复');

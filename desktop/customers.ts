@@ -31,12 +31,13 @@ import { redactSecrets, secretIn } from '../shared/secret-guard';
 
 
 import { deskDay } from '../shared/display-mode';
+import { emitReceptionEvent } from './plugin-hooks';
 
 
 
 import {
   BROADCAST_DEFAULT_CAP, BROADCAST_DAILY_MAX, BROADCAST_MAX_MEMBERS, CAPTURE_PROMPT, DEFAULT_FOLLOWUP_SETTINGS, MAX_PROFILES, PLATFORM_LIMIT, UNFIT_STAGE,
-  addFacts, addNote, addPurchase, adminSummary, bizField, boundStore, broadcastGapMs, cleanFilter, cleanLine, cleanStore, cleanTags, currentFact, currentValue, emptyStore, fieldLabel,
+  SALES_STAGE_LABEL, addFacts, addNote, addPurchase, adminSummary, bizField, boundStore, broadcastGapMs, cleanFilter, cleanLine, cleanStore, cleanTags, currentFact, currentValue, emptyStore, fieldLabel,
   findHeaderRow, findProfile, followUpCandidates, guessMapping, importRecords, inSendWindow, leadMatches, matchFilter, mergeImport, mergeProfiles, nameKey, newProfile, parseCapture, parseOwnerNote, parseWhen,
   profileLines, profilesCsv, readCaptureSettings, readFollowUpSettings, replyContext, seedLines, sendBlocked, stageOf,
   type Broadcast, type BusinessLine, type CaptureMessage, type CaptureSettings, type Channel, type CustomerFilter, type CustomerProfile, type CustomersStore, type CustomersView, type FollowUpItem,
@@ -44,6 +45,14 @@ import {
 } from '../shared/customers';
 
 export interface ShopLead { key: string; name: string; area?: string; category?: string; phone?: string }
+/** A lead from the 增长飞轮 feed (another system saw this person first). */
+export interface FlywheelLeadImport { contactId?: string; displayName: string; identities: Array<{ type: string; value: string }>; source?: string; need?: string; note?: string }
+/** A pre-created 未接触 profile merged into the profile with chats (the hub resolved them to one person). */
+export interface FlywheelMerged { from: string; into: string; intoName: string }
+/** Two profiles that both have chats share a hub id or a strong identity: never merged automatically (疑似同一人). */
+export interface FlywheelPair { profileId: string; profileName: string; candidateId: string; candidateName: string }
+export type FlywheelImportResult = { status: 'matched'; profileId: string; merged?: FlywheelMerged[]; pairs?: FlywheelPair[] } | { status: 'created'; profileId: string } | { status: 'suspect'; candidateId: string; candidateName: string } | { status: 'full' };
+export interface FlywheelLinkResult { changed: boolean; profileId?: string; merged?: FlywheelMerged[]; pairs?: FlywheelPair[] }
 export interface CustomersDeps {
   /** <userData>/customers/profiles.json; followups.json goes next to it. */
   file: string;
@@ -125,6 +134,19 @@ export async function createCustomers(deps: CustomersDeps) {
   let busy = Promise.resolve();
   const locked = <T,>(work: () => Promise<T>): Promise<T> => { const run = busy.then(work, work); busy = run.then(() => {}, () => {}); return run; };
 
+  /** addFacts, then tells plugins (增长飞轮 contact.profiled) which facts changed. Never awaited: listeners run later. */
+  const applyFacts = (p: CustomerProfile, input: import('../shared/customers').FactInput[], source: import('../shared/customers').FactSource, at: string) => {
+    const added = addFacts(p, input, source, at);
+    if (added.length) {
+      emitReceptionEvent({
+        kind: 'profile-updated', conversation: p.name, profileId: p.id, channel: p.channel,
+        changedFacts: added.map(f => ({ field: f.field, value: f.value, source: f.source, sensitive: f.sensitive })),
+        by: added.some(f => f.source === 'owner' || f.source === 'import') ? 'human' : 'ai', at,
+      });
+    }
+    return added;
+  };
+
   // Business lines: seeded once from the knowledge's 业务 tags (plus a generic one when there are none).
   const ensureLines = async () => { if (store.lines.length) return; let tags: string[][] = []; try { tags = (await deps.businessTags?.()) ?? []; } catch { tags = []; } store.lines = seedLines(tags); await save(); };
 
@@ -198,12 +220,12 @@ export async function createCustomers(deps: CustomersDeps) {
     const raw = await deps.writeText!(CAPTURE_PROMPT, input, ctrl);
     const patch = parseCapture(String(raw ?? ''), item.messages, store.lines);
     const at = stamp();
-    const added = addFacts(profile, patch.facts.map(f => ({ ...f, ...(item.jobId ? { jobId: item.jobId } : {}) })), 'customer', at);
+    const added = applyFacts(profile, patch.facts.map(f => ({ ...f, ...(item.jobId ? { jobId: item.jobId } : {}) })), 'customer', at);
     let bought = 0; for (const p of patch.purchases) if (addPurchase(profile, { line: p.line, product: p.product, at, source: 'customer', quote: p.quote })) bought++;
     let moved = 0;
     for (const l of patch.lines) {
       const facts = [...(l.stage ? [{ field: bizField(l.line, 'stage'), value: l.stage }] : []), ...(l.intent ? [{ field: bizField(l.line, 'intent'), value: l.intent }] : [])];
-      moved += addFacts(profile, facts, 'inferred', at).length;
+      moved += applyFacts(profile, facts, 'inferred', at).length;
     }
     recordDiag('customer-capture', { facts: added.length, purchases: bought, stages: moved, dropped: patch.dropped });
     await save();
@@ -379,7 +401,7 @@ export async function createCustomers(deps: CustomersDeps) {
     if (!rest.length) return privateOk() ? '要写内容：备注 客户名 内容' : DESK_ONLY;
     const p = profile ?? profileFor(name, 'desk', true); if (!p) return privateOk() ? '客户档案满了，没记上。' : DESK_ONLY;
     const parsed = parseOwnerNote(rest.join(' '), store.lines); const at = stamp();
-    const added = addFacts(p, parsed.facts, 'owner', at); const noted = parsed.note ? addNote(p, parsed.note, 'owner', at) : false;
+    const added = applyFacts(p, parsed.facts, 'owner', at); const noted = parsed.note ? addNote(p, parsed.note, 'owner', at) : false;
     note(`在聊天里给「${p.name}」记了${added.length ? ` ${added.length} 项` : ''}${noted ? '备注' : ''}`); await save();
     if (!privateOk()) return DESK_ONLY;
     return `已记到「${p.name}」：${[...added.map(f => `${fieldLabel(f.field, store.lines)}=${f.value}`), ...(noted ? ['备注'] : [])].join('、') || '没有新内容'}。`;
@@ -472,7 +494,7 @@ export async function createCustomers(deps: CustomersDeps) {
     setFact: (id: unknown, field: unknown, value: unknown) => locked(async () => {
       const p = profile(id); const f = typeof field === 'string' ? field : ''; const v = text(value, 200, '内容');
       if (!v) { p.facts = p.facts.filter(x => x.field !== f); p.updatedAt = stamp(); }
-      else if (!addFacts(p, [{ field: f, value: v }], 'owner', stamp()).length && currentValue(p, f) !== v) throw new Error('这一项没能保存。');
+      else if (!applyFacts(p, [{ field: f, value: v }], 'owner', stamp()).length && currentValue(p, f) !== v) throw new Error('这一项没能保存。');
       await save(); return view();
     }),
     rename: (id: unknown, name: unknown, aliases: unknown) => locked(async () => { const p = profile(id); const n = text(name, 120, '名字'); if (!n) throw new Error('名字不能空。'); const other = findProfile(store, n, p.channel); if (other && other.id !== p.id) throw new Error('已经有一位叫这个名字的客户了，可以用「合并」。'); p.name = n; p.aliases = (Array.isArray(aliases) ? aliases : []).map(a => text(a, 120, '名字')).filter(a => a && nameKey(a) !== nameKey(n)).slice(0, 10); p.updatedAt = stamp(); await save(); return view(); }),
@@ -487,7 +509,7 @@ export async function createCustomers(deps: CustomersDeps) {
       const at = day(i.at) ?? stamp(); const known = line.products.find(x => nameKey(x.name) === nameKey(product));
       const expiresAt = day(i.expiresAt) ?? (known?.renewDays ? new Date(Date.parse(at) + known.renewDays * 86400000).toISOString() : undefined);
       if (!addPurchase(p, { line: line.id, product, ...(text(i.amount, 40, '金额') ? { amount: text(i.amount, 40, '金额') } : {}), at, ...(expiresAt ? { expiresAt } : {}), source: 'owner' })) throw new Error('这一笔已经记过了。');
-      if (!['已成交', '售后/复购'].includes(stageOf(p, line.id) ?? '')) addFacts(p, [{ field: bizField(line.id, 'stage'), value: '已成交' }], 'owner', stamp());
+      if (!['已成交', '售后/复购'].includes(stageOf(p, line.id) ?? '')) applyFacts(p, [{ field: bizField(line.id, 'stage'), value: '已成交' }], 'owner', stamp());
       await save(); return view();
     }),
     removePurchase: (id: unknown, purchaseId: unknown) => locked(async () => { const p = profile(id); p.purchases = p.purchases.filter(x => x.id !== purchaseId); p.updatedAt = stamp(); await save(); return view(); }),
@@ -527,6 +549,157 @@ export async function createCustomers(deps: CustomersDeps) {
     startBroadcast: (id: unknown) => locked(async () => { const b = follow.broadcasts.find(x => x.id === id); if (!b || b.status !== 'review') throw new Error('这批消息不在等确认。'); if (!b.items.some(i => i.status === 'pending' && i.draft)) throw new Error('没有要发的消息。'); for (const i of b.items) if (i.status === 'pending' && !i.draft) i.status = 'removed'; b.status = 'sending'; note(`开始慢慢发分组消息「${b.name}」（${b.items.filter(i => i.status === 'pending').length} 条）`); await save(); void sendTick(); return view(); }),
     stopBroadcast: (id: unknown) => locked(async () => { const b = follow.broadcasts.find(x => x.id === id); if (!b) throw new Error('找不到这批消息。'); stopBroadcast(b, '你停下了'); await save(); return view(); }),
     removeBroadcast: (id: unknown) => locked(async () => { const b = follow.broadcasts.find(x => x.id === id); if (b?.status === 'sending') throw new Error('先停下再删除。'); follow.broadcasts = follow.broadcasts.filter(x => x.id !== id); await save(); return view(); }),
+    findProfileByName: (name: string, channel?: Channel) => findProfile(store, name, channel),
+    findProfileById: (id: string) => store.profiles.find(p => p.id === id),
+    /** Read-only list for the open interface (open-mcp.ts filters what leaves). */
+    profiles: (): readonly CustomerProfile[] => store.profiles,
+    /** Plugins (增长飞轮): the profile of the chat a reception event is about, created by the usual rules when missing.
+     *  Groups, the admin chat, system feeds, family/friends and contacts set to 我自己回 / 不理会 get none (undefined). */
+    ensureProfile: async (name: string, channel: Channel, chatKind?: 'direct' | 'group'): Promise<string | undefined> => {
+      if (chatKind === 'group') return undefined;
+      const known = findProfile(store, name, channel); if (known) return known.id;
+      return locked(async () => {
+        if (skipReason({ conversationName: name, kind: chatKind })) return undefined;
+        const existing = findProfile(store, name, channel); if (existing) return existing.id;
+        const p = profileFor(name, channel, true); if (!p) return undefined;
+        p.lastContactAt = stamp(); await save(); return p.id;
+      });
+    },
+    /** 增长飞轮: everything it changes goes through the same locked queue as the rest of 客户档案, and never emits
+     *  profile events itself (what came from the hub is not sent back to it). */
+    flywheel: (() => {
+      const lineForNeeds = () => store.lines[0]?.id;
+      const digits = (v: string) => { const d = v.replace(/\D/g, ''); return /^(?:86)?1[3-9]\d{9}$/.test(d) ? d.slice(-11) : d; };
+      const FIELD_OF: Record<string, string> = { phone: 'phone', wechat_id: 'wechatId', wecom_external_userid: 'wecomId', platform_uid: 'platformUid', store_id: 'storeId', email: 'email' };
+      const norm = (type: string, value: string) => type === 'phone' ? digits(value) : type === 'email' ? value.trim().toLowerCase() : value.trim();
+      const STRONG_FIELDS = new Set(Object.values(FIELD_OF));
+      const normFact = (field: string, value: string) => norm(field === 'phone' ? 'phone' : field === 'email' ? 'email' : 'x', value);
+      /** Chatted: reception saw this customer write (lastContactAt). Pre-created: a 未接触 profile the feed made, never chatted. */
+      const chatted = (p: CustomerProfile) => !!p.lastContactAt;
+      const precreated = (p: CustomerProfile) => !chatted(p) && p.tags.includes('未接触');
+      const holdsId = (p: CustomerProfile, id: string) => p.flywheelContactId === id || !!p.flywheelAltIds?.includes(id);
+      /** Several profiles for one id: the one with chats first (latest chat), then other records, a pre-created one last. */
+      const preferred = (list: CustomerProfile[]) => list.slice().sort((a, b) => (chatted(b) ? 2 : precreated(b) ? 0 : 1) - (chatted(a) ? 2 : precreated(a) ? 0 : 1) || (b.lastContactAt ?? '').localeCompare(a.lastContactAt ?? ''))[0];
+      const byContactId = (id: string) => preferred(store.profiles.filter(p => holdsId(p, id)));
+      const strongMatch = (identities: Array<{ type: string; value: string }>) => {
+        const wanted = identities.filter(i => FIELD_OF[i.type] && typeof i.value === 'string' && i.value.trim()).map(i => ({ field: FIELD_OF[i.type]!, value: norm(i.type, i.value) })).filter(i => i.value.length >= 5);
+        if (!wanted.length) return undefined;
+        return preferred(store.profiles.filter(p => p.facts.some(f => wanted.some(w => w.field === f.field && normFact(f.field, f.value) === w.value))));
+      };
+      const strongKeys = (p: CustomerProfile) => new Set(p.facts.filter(f => STRONG_FIELDS.has(f.field)).map(f => `${f.field}\0${normFact(f.field, f.value)}`).filter(k => k.length >= k.indexOf('\0') + 6));
+      /** The hub now says `id` for this person: it becomes the id in use; the one before is kept (hub merges). */
+      const useId = (p: CustomerProfile, id: string) => {
+        if (p.flywheelContactId === id) return false;
+        const alt = [...new Set([...(p.flywheelContactId ? [p.flywheelContactId] : []), ...(p.flywheelAltIds ?? [])])].filter(x => x !== id).slice(0, 8);
+        p.flywheelContactId = id; if (alt.length) p.flywheelAltIds = alt; else delete p.flywheelAltIds;
+        return true;
+      };
+      /** `from` goes into `into` with the usual mergeProfiles (facts, history, sources), plus the hub ids and the sales progress. */
+      const absorb = (into: CustomerProfile, from: CustomerProfile, at: string) => {
+        const untouched = into.tags.includes('未接触');
+        const ids = [into.flywheelContactId, from.flywheelContactId, ...(into.flywheelAltIds ?? []), ...(from.flywheelAltIds ?? [])].filter((x): x is string => !!x);
+        const sales = !into.salesStage || (from.salesStage && (from.salesStage.updatedAt ?? '') > (into.salesStage.updatedAt ?? '')) ? from.salesStage : into.salesStage;
+        mergeProfiles(into, from, at);
+        if (!untouched) into.tags = into.tags.filter(t => t !== '未接触');
+        into.flywheelContactId ??= ids[0];
+        const alt = [...new Set(ids)].filter(x => x !== into.flywheelContactId).slice(0, 8); if (alt.length) into.flywheelAltIds = alt; else delete into.flywheelAltIds;
+        if (sales) into.salesStage = sales;
+        store.profiles = store.profiles.filter(p => p.id !== from.id);
+        for (const i of follow.items) if (i.profileId === from.id) i.profileId = into.id;
+      };
+      /**
+       * After a hub id or a strong identity reached `p`: another profile with that id / identity is the same person.
+       * A pre-created 未接触 one is merged into the one with chats at once; two real records (both chatted) are never
+       * merged here, they come back as pairs for the 疑似同一人 prompt. Runs inside the locked queue, in memory only.
+       */
+      const reconcile = (p: CustomerProfile, at: string) => {
+        const ids = [p.flywheelContactId, ...(p.flywheelAltIds ?? [])].filter((x): x is string => !!x); const keys = strongKeys(p);
+        const others = store.profiles.filter(o => o !== p && (ids.some(id => holdsId(o, id)) || o.facts.some(f => STRONG_FIELDS.has(f.field) && keys.has(`${f.field}\0${normFact(f.field, f.value)}`))));
+        let into = p; const merged: FlywheelMerged[] = []; const pairs: FlywheelPair[] = [];
+        for (const o of others) {
+          if (precreated(o) || precreated(into)) {
+            const [keep, drop] = precreated(o) ? [into, o] : [o, into];
+            absorb(keep, drop, at); merged.push({ from: drop.id, into: keep.id, intoName: keep.name }); into = keep;
+            note(`增长飞轮：预建的「${drop.name}」就是「${keep.name}」，已合并到「${keep.name}」`);
+          } else pairs.push({ profileId: into.id, profileName: into.name, candidateId: o.id, candidateName: o.name });
+        }
+        return { into, merged, pairs: pairs.filter(x => x.profileId === into.id && store.profiles.some(q => q.id === x.candidateId)) };
+      };
+      const merge = (p: CustomerProfile, lead: FlywheelLeadImport, at: string) => {
+        if (lead.contactId && !holdsId(p, lead.contactId)) useId(p, lead.contactId);
+        const facts = lead.identities.filter(i => FIELD_OF[i.type] && i.value).map(i => ({ field: FIELD_OF[i.type]!, value: i.type === 'phone' ? digits(i.value) : i.value.trim() }));
+        if (lead.source) facts.push({ field: 'source', value: lead.source });
+        const line = lineForNeeds(); if (lead.need && line) facts.push({ field: bizField(line, 'needs'), value: lead.need });
+        addFacts(p, facts, 'import', at);
+        if (lead.need && !line) addNote(p, `需求（增长飞轮）：${lead.need}`, 'import', at);
+        if (lead.note) addNote(p, lead.note, 'import', at);
+        p.updatedAt = at;
+      };
+      const create = (lead: FlywheelLeadImport, at: string, suffix = ''): FlywheelImportResult => {
+        if (store.profiles.length >= MAX_PROFILES) return { status: 'full' };
+        let name = `${(lead.displayName || '').trim() || '飞轮线索'}${suffix}`.slice(0, 110); let n = 1;
+        while (findProfile(store, name, 'desk')) name = `${(lead.displayName || '').trim() || '飞轮线索'}${suffix}（${++n}）`.slice(0, 120);
+        const p = newProfile(name, 'desk', at); p.tags = ['未接触']; merge(p, lead, at); store.profiles.push(p);
+        note(`增长飞轮送来新客户：预建档案「${p.name}」（未接触）`);
+        return { status: 'created', profileId: p.id };
+      };
+      const matched = (p: CustomerProfile, at: string): FlywheelImportResult => {
+        const r = reconcile(p, at);
+        return { status: 'matched', profileId: r.into.id, ...(r.merged.length ? { merged: r.merged } : {}), ...(r.pairs.length ? { pairs: r.pairs } : {}) };
+      };
+      return {
+        /** The hub's id for a profile kadadesk sent (receipt): stored, and a pre-created 未接触 profile of the same person merged in. */
+        writeContactId: (profileId: string, contactId: string) => locked(async (): Promise<FlywheelLinkResult> => {
+          const p = store.profiles.find(x => x.id === profileId); if (!p) return { changed: false };
+          const at = stamp(); const changed = useId(p, contactId); if (changed) p.updatedAt = at;
+          const r = reconcile(p, at);
+          if (changed || r.merged.length) await save();
+          return { changed: changed || r.merged.length > 0, profileId: r.into.id, ...(r.merged.length ? { merged: r.merged } : {}), ...(r.pairs.length ? { pairs: r.pairs } : {}) };
+        }),
+        /** 扣词: the content the customer came from, as the 来源 fact (customer source: the customer sent the keyword). */
+        recordSource: (profileId: string, value: string) => locked(async () => { const p = store.profiles.find(x => x.id === profileId); if (!p || p.facts.some(f => f.field === 'source' && f.value === value)) return; addFacts(p, [{ field: 'source', value }], 'customer', stamp()); await save(); }),
+        /** A strong id or the hub contact id → merge; only a name in common → 疑似同一人 (nothing changes); nothing → a pre-created 未接触 profile. */
+        importLead: (lead: FlywheelLeadImport) => locked(async (): Promise<FlywheelImportResult> => {
+          const at = stamp();
+          const byId = lead.contactId ? byContactId(lead.contactId) : undefined;
+          const match = byId ?? strongMatch(lead.identities);
+          if (match) { merge(match, lead, at); note(`增长飞轮的线索对上了客户「${match.name}」`); const r = matched(match, at); await save(); return r; }
+          const names = [lead.displayName, ...lead.identities.filter(i => i.type === 'wechat_remark' || i.type === 'company_name').map(i => i.value)].filter(n => typeof n === 'string' && n.trim());
+          for (const n of names) { const c = findProfile(store, n); if (c) return { status: 'suspect', candidateId: c.id, candidateName: c.name }; }
+          const r = create(lead, at); if (r.status === 'created') await save(); return r;
+        }),
+        /** The owner's answer to 疑似同一人: same person → merge into that profile; not → a separate pre-created profile. */
+        resolveSuspect: (lead: FlywheelLeadImport, candidateId: string, same: boolean) => locked(async (): Promise<FlywheelImportResult> => {
+          const at = stamp(); const c = store.profiles.find(p => p.id === candidateId);
+          if (same && c) { merge(c, lead, at); note(`你确认：增长飞轮的「${lead.displayName}」就是「${c.name}」`); const r = matched(c, at); await save(); return r; }
+          const r = create(lead, at, '（飞轮）'); if (r.status === 'created') await save(); return r;
+        }),
+        /** The owner's answer to 疑似同一人 for two profiles that both have chats: same → one profile (the first keeps its name). */
+        mergePair: (intoId: string, fromId: string) => locked(async () => {
+          const into = store.profiles.find(p => p.id === intoId), from = store.profiles.find(p => p.id === fromId);
+          if (!into || !from || into === from) return false;
+          absorb(into, from, stamp()); note(`你确认：「${from.name}」和「${into.name}」是同一位客户，已合并`); await save(); return true;
+        }),
+        /** Sales progress from the CRM: only what this event says changes (stage / next follow-up / won-lost); the rest stays.
+         *  It lands on the profile with chats: a pre-created 未接触 profile of the same person is merged into it first. */
+        applySales: (u: { contactId?: string; identities?: Array<{ type: string; value: string }>; type: string; to?: string; dueAt?: string }) => locked(async () => {
+          const at = stamp();
+          let target = u.contactId ? byContactId(u.contactId) : undefined;
+          if (!target && u.identities) { target = strongMatch(u.identities); if (target && u.contactId) useId(target, u.contactId); }
+          if (!target) return false;
+          target = reconcile(target, at).into;
+          const ss = { ...(target.salesStage ?? {}) };
+          if (u.type === 'stage.changed' && u.to) { ss.stage = u.to; ss.stageName = SALES_STAGE_LABEL[u.to] ?? u.to; if (u.to === 'WON') ss.dealStatus = 'won'; else if (u.to === 'LOST') ss.dealStatus = 'lost'; else if (ss.dealStatus === 'lost') ss.dealStatus = 'open'; }
+          else if (u.type === 'followup.scheduled' && u.dueAt && Number.isFinite(Date.parse(u.dueAt))) ss.nextFollowupAt = new Date(Date.parse(u.dueAt)).toISOString();
+          else if (u.type === 'deal.lost') { ss.dealStatus = 'lost'; ss.stage = 'LOST'; ss.stageName = SALES_STAGE_LABEL.LOST; }
+          else if (u.type === 'contract.signed') { ss.dealStatus = 'won'; ss.stage = 'WON'; ss.stageName = SALES_STAGE_LABEL.WON; }
+          else { await save(); return false; }
+          ss.updatedAt = at; target.salesStage = ss; target.updatedAt = at;
+          note(`增长飞轮：「${target.name}」的销售进展更新为「${ss.stageName ?? ss.stage ?? ''}」`);
+          await save(); return true;
+        }),
+      };
+    })(),
     // Import from a spreadsheet: preview with the column guess, then import with the owner's choices.
     previewImport: (file: string, grid: string[][]): ImportPreview => {
       const rows = grid.filter(r => r.some(c => c && c.trim())).slice(0, 5005); if (!rows.length) throw new Error('文件里没有内容。');
