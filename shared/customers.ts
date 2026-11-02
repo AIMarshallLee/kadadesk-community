@@ -41,6 +41,16 @@ export interface CustomerProfile {
   lastContactAt?: string;
   /** 门店线索 (手机找客户) this chat was matched to. */
   leadKey?: string;
+  /** 增长飞轮统一联系人标识 */
+  flywheelContactId?: string;
+  /** 飞轮同步回写的销售阶段与进展 */
+  salesStage?: {
+    stage?: string;
+    stageName?: string;
+    dealStatus?: 'open' | 'won' | 'lost';
+    nextFollowupAt?: string;
+    updatedAt?: string;
+  };
   createdAt: string; updatedAt: string;
 }
 export type CustomFieldType = 'text' | 'number' | 'date' | 'choice';
@@ -144,7 +154,10 @@ export function cleanProfile(raw: unknown): CustomerProfile | undefined {
   return { id: p.id, channel: p.channel === 'phone' ? 'phone' : 'desk', name, aliases: (Array.isArray(p.aliases) ? p.aliases : []).map(a => clip(a, 120)).filter(Boolean).slice(0, 10),
     facts: trimFacts(facts), tags: cleanTags(p.tags), notes, purchases: (Array.isArray(p.purchases) ? p.purchases : []).map(cleanPurchase).filter((x): x is CustomerPurchase => !!x).slice(-MAX_PURCHASES),
     ...(next ? { nextFollowUp: next } : {}), ...(iso(p.lastFollowUpAt) ? { lastFollowUpAt: iso(p.lastFollowUpAt) } : {}), ...(iso(p.lastContactAt) ? { lastContactAt: iso(p.lastContactAt) } : {}),
-    ...(typeof p.leadKey === 'string' && p.leadKey.length <= 200 ? { leadKey: p.leadKey } : {}), createdAt, updatedAt: iso(p.updatedAt) ?? createdAt };
+    ...(typeof p.leadKey === 'string' && p.leadKey.length <= 200 ? { leadKey: p.leadKey } : {}),
+    ...(typeof p.flywheelContactId === 'string' && p.flywheelContactId.length <= 120 ? { flywheelContactId: p.flywheelContactId } : {}),
+    ...(p.salesStage && typeof p.salesStage === 'object' ? { salesStage: { ...p.salesStage } } : {}),
+    createdAt, updatedAt: iso(p.updatedAt) ?? createdAt };
 }
 export function cleanLine(raw: unknown, taken = new Set<string>()): BusinessLine | undefined {
   const l = raw as BusinessLine; if (!l || typeof l !== 'object') return undefined;
@@ -304,6 +317,13 @@ export function replyContext(profile: CustomerProfile | undefined, lines: Busine
     for (const key of ['needs', 'budget', 'timeline', 'decisionMaker']) { const f = currentFact(profile, bizField(line.id, key)); if (quoteOk(f) && f!.source !== 'inferred') bits.push(`${BIZ_FIELDS.find(d => d.key === key)!.label}${f!.value}`); }
     const bought = profile.purchases.filter(p => p.line === line.id).slice(-3).map(p => p.product); if (bought.length) bits.push(`买过${bought.join('、')}`);
     if (bits.length) parts.push(`【${line.name}】${bits.join('，')}`);
+  }
+  if (profile.salesStage?.stageName) {
+    if (profile.salesStage.dealStatus === 'won') {
+      parts.push(`【飞轮销售进展】该客户已成交签约（${profile.salesStage.stageName}），请按老客户熟客口吻热情接待`);
+    } else {
+      parts.push(`【飞轮销售进展】当前处于「${profile.salesStage.stageName}」阶段，请配合该阶段推进，不要从头生硬介绍产品`);
+    }
   }
   if (!parts.length) return '';
   let body = parts.join('；'); if (body.length > max) body = body.slice(0, max - 1) + '…';

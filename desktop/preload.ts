@@ -137,6 +137,12 @@ contextBridge.exposeInMainWorld('flowdesk', {
     list: () => invoke('flowdesk:notice:list'),
     unmute: (key: string) => invoke('flowdesk:notice:unmute', key)
   },
+  flywheel: {
+    state: () => invoke('flowdesk:flywheel:state'),
+    save: (patch: Record<string, unknown>) => invoke('flowdesk:flywheel:save', patch),
+    test: (options?: { hubUrl?: string; apiKey?: string }) => invoke('flowdesk:flywheel:test', options),
+    clearOutbox: () => invoke('flowdesk:flywheel:clear-outbox'),
+  },
   request: (request: ApiRequest) => invoke('flowdesk:request', request),
   copyText: (text: string) => invoke('flowdesk:copy-text', text),
   version: () => invoke('flowdesk:version'),

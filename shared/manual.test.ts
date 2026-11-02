@@ -13,7 +13,7 @@ const pkgVersion = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).
 
 test('the manual loads in beginner order: 常见问题 first, 更新日志 last', () => {
   assert.deepEqual(MANUAL.map(c => c.id), [
-    'faq', 'first-steps', 'import', 'knowledge', 'data', 'models', 'reminders', 'privacy', 'help', 'customers', 'changelog'
+    'faq', 'first-steps', 'import', 'knowledge', 'data', 'models', 'reminders', 'privacy', 'help', 'customers', 'plugins', 'changelog'
   ]);
   assert.equal(MANUAL[0].id, MANUAL_FAQ);
   assert.equal(MANUAL.at(-1)!.id, MANUAL_CHANGELOG);
